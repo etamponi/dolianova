@@ -16,6 +16,10 @@ class TestWaterSystemController(unittest.TestCase):
     self.sensor_pins = {'tank1_full': 17, 'tank1_empty': 18,
                         'tank2_full': 27, 'tank2_empty': 22}
     self.pump_pins = {'pump1': 23, 'pump2': 24}
+    self.pump_settings = {
+      'pump1': {'max_duration': 1, 'cooldown': 2},
+      'pump2': {'wait_time': 3}
+    }
     self.state_file = 'test_water_system_state.json'
     # Remove the state file if needed
     if os.path.exists(self.state_file):
@@ -35,6 +39,46 @@ class TestWaterSystemController(unittest.TestCase):
     time.sleep(1)
     controller.start_pump('pump1')
     self.assertEquals(start_time, controller.state['pump1_start_time'])
+
+  def test_step(self):
+    controller = WaterSystemController(
+      self.sensor_pins, self.pump_pins, self.pump_settings, self.state_file)
+    print()
+    print(controller.state)
+    controller.step()
+    print(controller.state)
+    time.sleep(1)
+    controller.step()
+    print(controller.state)
+    time.sleep(1)
+    controller.step()
+    print(controller.state)
+    time.sleep(1)
+    controller.step()
+    print(controller.state)
+    controller.sensor_pins['tank1_full'].pin.drive_high()
+    time.sleep(1)
+    controller.step()
+    print(controller.state)
+    time.sleep(1)
+    controller.step()
+    print(controller.state)
+    time.sleep(1)
+    controller.step()
+    print(controller.state)
+    time.sleep(1)
+    controller.step()
+    print(controller.state)
+    time.sleep(1)
+    controller.step()
+    print(controller.state)
+    controller.sensor_pins['tank2_full'].pin.drive_high()
+    time.sleep(1)
+    controller.step()
+    print(controller.state)
+    time.sleep(1)
+    controller.step()
+    print(controller.state)
 
   def tearDown(self):
     # Remove the state file if needed

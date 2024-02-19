@@ -37,7 +37,7 @@ class WaterSystemController:
       return {'pump1_last_on': None, 'pump2_last_on': None,
               'pump1_running': False, 'pump2_running': False,
               'pump1_start_time': None, 'pump2_start_time': None,
-              'tank1_state': 'emptying'}
+              'tank1_state': 'filling'}
 
   def write_state(self):
     with open(self.state_file, 'w') as file:
@@ -64,7 +64,7 @@ class WaterSystemController:
   def check_pump_duration(self):
     now = datetime.now()
     for pump, settings in self.pump_settings.items():
-      if settings['max_duration']:
+      if 'max_duration' in settings and self.state[f'{pump}_start_time']:
         start_time = datetime.fromisoformat(self.state[f'{pump}_start_time'])
         if (now - start_time).seconds >= settings['max_duration']:
           self.stop_pump(pump)
@@ -95,16 +95,21 @@ class WaterSystemController:
       return
     if not self.sensor_pins['tank2_full'].is_active:
       self.start_pump('pump2')
+    if self.sensor_pins['tank2_full'].is_active:
+      self.stop_pump('pump2')
     if self.sensor_pins['tank1_empty'].is_active:
       self.state['tank1_state'] = 'filling'
       self.stop_pump('pump2')
+  
+  def step(self):
+    self.transfer_water_to_tank1()
+    self.transfer_water_to_tank2()
+    self.check_pump_duration()
 
   def main_loop(self):
     try:
       while True:
-        self.transfer_water_to_tank1()
-        self.transfer_water_to_tank2()
-        self.check_pump_duration()
+        self.step()
         time.sleep(1)  # Short sleep to prevent high CPU usage
     except KeyboardInterrupt:
       pass  # Cleanup is handled automatically by gpiozero
