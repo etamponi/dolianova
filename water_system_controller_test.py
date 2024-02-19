@@ -76,6 +76,8 @@ class TestWaterSystemController(unittest.TestCase):
     time.sleep(1)
     controller.step()
     print(controller.state)
+    controller.sensor_pins['tank1_full'].pin.drive_low()
+    controller.sensor_pins['tank1_empty'].pin.drive_high()
     time.sleep(1)
     controller.step()
     print(controller.state)

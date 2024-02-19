@@ -43,22 +43,26 @@ class WaterSystemController:
     with open(self.state_file, 'w') as file:
       json.dump(self.state, file)
 
-  def start_pump(self, pump):
+  def start_pump(self, pump, why=None):
     self.pump_pins[pump].on()
     if self.state[f'{pump}_running']:
       return
     self.state[f'{pump}_running'] = True
     self.state[f'{pump}_start_time'] = datetime.now().isoformat()
     self.state[f'{pump}_last_on'] = None
+    if why:
+      print(f'Starting {pump} because {why}')
     self.write_state()
 
-  def stop_pump(self, pump):
+  def stop_pump(self, pump, why=None):
     self.pump_pins[pump].off()
     if not self.state[f'{pump}_running']:
       return
     self.state[f'{pump}_running'] = False
     self.state[f'{pump}_start_time'] = None
     self.state[f'{pump}_last_on'] = datetime.now().isoformat()
+    if why:
+      print(f'Stopping {pump} because {why}')
     self.write_state()
 
   def check_pump_duration(self):
@@ -67,7 +71,7 @@ class WaterSystemController:
       if 'max_duration' in settings and self.state[f'{pump}_start_time']:
         start_time = datetime.fromisoformat(self.state[f'{pump}_start_time'])
         if (now - start_time).seconds >= settings['max_duration']:
-          self.stop_pump(pump)
+          self.stop_pump(pump, f'{pump} has been running for too long')
 
   def transfer_water_to_tank1(self):
     if self.state['tank1_state'] != 'filling':
@@ -78,10 +82,10 @@ class WaterSystemController:
       if now - last_on < timedelta(seconds=self.pump_settings['pump1']['cooldown']):
         return
     if not self.sensor_pins['tank1_full'].is_active:
-      self.start_pump('pump1')
+      self.start_pump('pump1', 'tank1 is not full')
     if self.sensor_pins['tank1_full'].is_active:
       self.state['tank1_state'] = 'emptying'
-      self.stop_pump('pump1')
+      self.stop_pump('pump1', 'tank1 is full')
 
   def transfer_water_to_tank2(self):
     if self.state['tank1_state'] != 'emptying':
@@ -94,12 +98,12 @@ class WaterSystemController:
     if now - tank1_filled_at < timedelta(seconds=self.pump_settings['pump2']['wait_time']):
       return
     if not self.sensor_pins['tank2_full'].is_active:
-      self.start_pump('pump2')
+      self.start_pump('pump2', 'tank2 is not full')
     if self.sensor_pins['tank2_full'].is_active:
-      self.stop_pump('pump2')
+      self.stop_pump('pump2', 'tank2 is full')
     if self.sensor_pins['tank1_empty'].is_active:
       self.state['tank1_state'] = 'filling'
-      self.stop_pump('pump2')
+      self.stop_pump('pump2', 'tank1 is empty')
   
   def step(self):
     self.transfer_water_to_tank1()
