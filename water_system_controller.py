@@ -71,7 +71,7 @@ class WaterSystemController:
       if 'max_duration' in settings and self.state[f'{pump}_start_time']:
         start_time = datetime.fromisoformat(self.state[f'{pump}_start_time'])
         if (now - start_time).seconds >= settings['max_duration']:
-          self.stop_pump(pump, f'{pump} has been running for too long')
+          self.stop_pump(pump, f'{pump} has been running for {settings["max_duration"]} seconds')
 
   def transfer_water_to_tank1(self):
     if self.state['tank1_state'] != 'filling':
