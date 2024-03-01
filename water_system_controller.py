@@ -36,7 +36,7 @@ class WaterSystemController:
 
   def write_state(self):
     with open(self.state_file, 'w') as file:
-      json.dump(self.state, file)
+      json.dump(self.state, file, indent=2, sort_keys=True)
 
   def print_state(self):
     now = datetime.now()
