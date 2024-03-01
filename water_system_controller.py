@@ -7,21 +7,19 @@ from gpiozero import DigitalInputDevice, DigitalOutputDevice
 
 
 class WaterSystemController:
-  def __init__(
-          self, sensor_pins_config, pump_pins_config, pump_settings,
-          state_file='water_system_state.json'):
+  def __init__(self, config):
     self.sensor_pins = {
-        'tank1_max_level': DigitalInputDevice(sensor_pins_config['tank1_max_level']),
-        'tank1_min_level': DigitalInputDevice(sensor_pins_config['tank1_min_level']),
-        'tank2_max_level': DigitalInputDevice(sensor_pins_config['tank2_max_level']),
-        'tank2_min_level': DigitalInputDevice(sensor_pins_config['tank2_min_level']),
+        'tank1_max_level': DigitalInputDevice(config['pins']['tank1_max_level']),
+        'tank1_min_level': DigitalInputDevice(config['pins']['tank1_min_level']),
+        'tank2_max_level': DigitalInputDevice(config['pins']['tank2_max_level']),
+        'tank2_min_level': DigitalInputDevice(config['pins']['tank2_min_level']),
     }
     self.pump_pins = {
-        'pump1': DigitalOutputDevice(pump_pins_config['pump1']),
-        'pump2': DigitalOutputDevice(pump_pins_config['pump2']),
+        'pump1': DigitalOutputDevice(config['pins']['pump1']),
+        'pump2': DigitalOutputDevice(config['pins']['pump2']),
     }
-    self.pump_settings = pump_settings
-    self.state_file = state_file
+    self.pump_settings = config['pump_settings']
+    self.state_file = config['state_file']
     self.state = self.read_state()
 
   def read_state(self):
@@ -205,15 +203,7 @@ def minutes(a):
 
 
 if __name__ == '__main__':
-  sensor_pins_config = {'tank1_max_level': 17,
-                        'tank1_min_level': 18,
-                        'tank2_max_level': 27,
-                        'tank2_min_level': 22}
-  pump_pins_config = {'pump1': 23, 'pump2': 24}
-  pump_settings = {
-      'pump1': {'max_duration': 30 * 60, 'cooldown': 5 * 60 * 60},
-      'pump2': {'wait_time': 12 * 60 * 60},
-  }
-  controller = WaterSystemController(
-    sensor_pins_config, pump_pins_config, pump_settings)
+  with open('water_system_config.json', 'r') as file:
+    config = json.load(file)
+  controller = WaterSystemController(config)
   controller.main_loop()

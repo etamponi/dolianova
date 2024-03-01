@@ -1,0 +1,20 @@
+{
+  "pins": {
+    "tank1_max_level": 17,
+    "tank1_min_level": 18,
+    "tank2_max_level": 27,
+    "tank2_min_level": 22,
+    "pump1": 23,
+    "pump2": 24
+  },
+  "pump_settings": {
+    "pump1": {
+      "max_duration": 1800,
+      "cooldown": 18000
+    },
+    "pump2": {
+      "wait_time": 43200
+    }
+  },
+  "state_file": "water_system_state.json"
+}
