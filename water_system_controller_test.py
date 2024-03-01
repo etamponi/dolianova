@@ -5,7 +5,6 @@ import unittest
 from gpiozero import Device
 from gpiozero.pins.mock import MockFactory
 
-# Adjust the import path as needed
 from water_system_controller import WaterSystemController
 
 Device.pin_factory = MockFactory()
@@ -13,8 +12,8 @@ Device.pin_factory = MockFactory()
 
 class TestWaterSystemController(unittest.TestCase):
   def setUp(self):
-    self.sensor_pins = {'tank1_full': 17, 'tank1_empty': 18,
-                        'tank2_full': 27, 'tank2_empty': 22}
+    self.sensor_pins = {'tank1_max_level': 17, 'tank1_min_level': 18,
+                        'tank2_max_level': 27, 'tank2_min_level': 22}
     self.pump_pins = {'pump1': 23, 'pump2': 24}
     self.pump_settings = {
       'pump1': {'max_duration': 1, 'cooldown': 2},
@@ -44,43 +43,33 @@ class TestWaterSystemController(unittest.TestCase):
     controller = WaterSystemController(
       self.sensor_pins, self.pump_pins, self.pump_settings, self.state_file)
     print()
-    print(controller.state)
+
+    # Let's start with both tanks empty:
+    controller.sensor_pins['tank1_min_level'].pin.drive_low()
+    controller.sensor_pins['tank1_max_level'].pin.drive_low()
+    controller.sensor_pins['tank2_min_level'].pin.drive_low()
+    controller.sensor_pins['tank2_max_level'].pin.drive_low()
+    controller.print_state()
+
+    controller.step(); time.sleep(1)
+    controller.sensor_pins['tank1_min_level'].pin.drive_high()
+    controller.step(); time.sleep(1)
+    controller.step(); time.sleep(1)
+    controller.step(); time.sleep(1)
+    controller.sensor_pins['tank1_max_level'].pin.drive_high()
+    controller.step(); time.sleep(1)
+    controller.step(); time.sleep(1)
+    controller.step(); time.sleep(1)
+    controller.step(); time.sleep(1)
+    controller.sensor_pins['tank2_min_level'].pin.drive_high()
+    controller.sensor_pins['tank1_max_level'].pin.drive_low()
+    controller.step(); time.sleep(1)
+    controller.sensor_pins['tank2_max_level'].pin.drive_high()
+    controller.step(); time.sleep(1)
+    controller.sensor_pins['tank2_max_level'].pin.drive_low()
+    controller.step(); time.sleep(1)
+    controller.sensor_pins['tank1_min_level'].pin.drive_low()
     controller.step()
-    print(controller.state)
-    time.sleep(1)
-    controller.step()
-    print(controller.state)
-    time.sleep(1)
-    controller.step()
-    print(controller.state)
-    time.sleep(1)
-    controller.step()
-    print(controller.state)
-    controller.sensor_pins['tank1_full'].pin.drive_high()
-    time.sleep(1)
-    controller.step()
-    print(controller.state)
-    time.sleep(1)
-    controller.step()
-    print(controller.state)
-    time.sleep(1)
-    controller.step()
-    print(controller.state)
-    time.sleep(1)
-    controller.step()
-    print(controller.state)
-    time.sleep(1)
-    controller.step()
-    print(controller.state)
-    controller.sensor_pins['tank2_full'].pin.drive_high()
-    time.sleep(1)
-    controller.step()
-    print(controller.state)
-    controller.sensor_pins['tank1_full'].pin.drive_low()
-    controller.sensor_pins['tank1_empty'].pin.drive_high()
-    time.sleep(1)
-    controller.step()
-    print(controller.state)
 
   def tearDown(self):
     # Remove the state file if needed
