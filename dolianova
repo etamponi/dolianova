@@ -1,0 +1,24 @@
+#!/bin/bash
+set -e
+
+# Create project directory if it does not exist
+if [ ! -d /opt/dolianova ]; then
+  cd /opt/
+  git clone https://github.com/etamponi/dolianova.git
+  cd dolianova
+  # Create virtual environment
+  python3 -m venv .venv
+  # Install required packages
+  source .venv/bin/activate
+  pip install -r requirements.txt
+fi
+
+# Change to the project directory
+cd /opt/dolianova
+# Pull the latest changes from the repository
+git pull
+# Activate the virtual environment
+source .venv/bin/activate
+
+# Run the water_system_controller.py script
+python water_system_controller.py
