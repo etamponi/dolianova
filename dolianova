@@ -11,10 +11,10 @@ if [ ! -d /opt/dolianova ]; then
   # Install required packages
   source .venv/bin/activate
   pip install -r requirements.txt
-  # Install RPi.GPIO only on the Raspberry Pi
+  # Install RPi.GPIO and lgpio only on the Raspberry Pi
   if [ -f /proc/device-tree/model ]; then
     if grep -q "Raspberry Pi" /proc/device-tree/model; then
-      pip install RPi.GPIO
+      pip install RPi.GPIO lgpio
     fi
   fi
 fi

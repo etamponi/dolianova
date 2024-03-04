@@ -1,4 +1,5 @@
 .venv/
+.vscode/
 __pycache__/
 
 water_system_state.json
