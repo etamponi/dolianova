@@ -6,6 +6,7 @@ Type=simple
 ExecStart=/usr/local/bin/dolianova
 Restart=on-failure
 RestartSec=10
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target

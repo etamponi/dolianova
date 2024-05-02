@@ -25,4 +25,3 @@ cp dolianova.service /etc/systemd/system/
 
 systemctl daemon-reload
 systemctl enable dolianova.service
-systemctl start dolianova.service
