@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 
-sudo echo "Root access obtained"
-
 # Remove old installation if it exists
 rm -rf /opt/dolianova
 
@@ -22,9 +20,9 @@ if [ -f /proc/device-tree/model ]; then
 fi
 deactivate
 
-sudo cp dolianova /usr/local/bin
-sudo cp dolianova.service /etc/systemd/system/
+cp dolianova /usr/local/bin
+cp dolianova.service /etc/systemd/system/
 
-sudo systemctl daemon-reload
-sudo systemctl enable dolianova.service
-sudo systemctl start dolianova.service
+systemctl daemon-reload
+systemctl enable dolianova.service
+systemctl start dolianova.service

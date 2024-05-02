@@ -7,5 +7,5 @@
 2. Esegui:
    ```
    git clone https://github.com/etamponi/dolianova.git
-   dolianova/install.sh
+   sudo dolianova/install.sh
    ```
