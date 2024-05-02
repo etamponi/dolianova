@@ -1,24 +1,6 @@
 #!/bin/bash
 set -e
 
-# Create project directory if it does not exist
-if [ ! -d /opt/dolianova ]; then
-  cd /opt/
-  git clone https://github.com/etamponi/dolianova.git
-  cd dolianova
-  # Create virtual environment
-  python3 -m venv .venv
-  # Install required packages
-  source .venv/bin/activate
-  pip install -r requirements.txt
-  # Install RPi.GPIO and lgpio only on the Raspberry Pi
-  if [ -f /proc/device-tree/model ]; then
-    if grep -q "Raspberry Pi" /proc/device-tree/model; then
-      pip install RPi.GPIO lgpio
-    fi
-  fi
-fi
-
 # Change to the project directory
 cd /opt/dolianova
 # Pull the latest changes from the repository
