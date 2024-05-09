@@ -190,11 +190,16 @@ class WaterSystemController:
     self.print_state()
 
   def main_loop(self):
+    self.stop_pump('pump1', 'initialization')
+    self.stop_pump('pump2', 'initialization')
     try:
       while True:
         self.step()
         time.sleep(1)  # Short sleep to prevent high CPU usage
     except KeyboardInterrupt:
+      print(f'Exiting at {datetime.now()}')
+      self.stop_pump('pump1', 'shutdown')
+      self.stop_pump('pump2', 'shutdown')
       pass  # Cleanup is handled automatically by gpiozero
 
 

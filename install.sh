@@ -11,7 +11,7 @@ cd dolianova
 python3 -m venv .venv
 # Install required packages
 source .venv/bin/activate
-pip install --no-input -r requirements.txt
+pip install -r requirements.txt
 # Install RPi.GPIO and lgpio only on the Raspberry Pi
 if [ -f /proc/device-tree/model ]; then
   if grep -q "Raspberry Pi" /proc/device-tree/model; then
