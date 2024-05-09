@@ -3,16 +3,16 @@ import os
 import time
 from datetime import datetime, timedelta
 
-from gpiozero import DigitalInputDevice, DigitalOutputDevice
+from gpiozero import Button, DigitalOutputDevice
 
 
 class WaterSystemController:
   def __init__(self, config):
     self.sensor_pins = {
-        'tank1_max_level': DigitalInputDevice(config['pins']['tank1_max_level']),
-        'tank1_min_level': DigitalInputDevice(config['pins']['tank1_min_level']),
-        'tank2_max_level': DigitalInputDevice(config['pins']['tank2_max_level']),
-        'tank2_min_level': DigitalInputDevice(config['pins']['tank2_min_level']),
+        'tank1_min_level': Button(config['pins']['tank1_min_level']),
+        'tank1_max_level': Button(config['pins']['tank1_max_level']),
+        'tank2_min_level': Button(config['pins']['tank2_min_level']),
+        'tank2_max_level': Button(config['pins']['tank2_max_level']),
     }
     self.pump_pins = {
         'pump1': DigitalOutputDevice(config['pins']['pump1']),
