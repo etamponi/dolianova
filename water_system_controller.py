@@ -200,7 +200,8 @@ class WaterSystemController:
       print(f'Exiting at {datetime.now()}')
       self.stop_pump('pump1', 'shutdown')
       self.stop_pump('pump2', 'shutdown')
-      time.sleep(1)
+      self.pump_pins['pump1'].close()
+      self.pump_pins['pump2'].close()
       pass  # Cleanup is handled automatically by gpiozero
 
 
