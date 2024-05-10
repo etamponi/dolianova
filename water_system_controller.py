@@ -62,7 +62,7 @@ class WaterSystemController:
 
     if self.state['tank1_state'] == 'filling':
       print('Filling tank1')
-      if self.sensor_pins['tank1_max_level'].is_active:
+      if self.sensor_pins['tank1_max_level'].is_active and self.state['pump1_running']:
         print('WARNING: Tank1 should not be filling while it is full')
       if self.state['pump2_running']:
         print(f'WARNING: pump2 should not be running while tank1 is filling')
@@ -153,22 +153,28 @@ class WaterSystemController:
   def transfer_water_to_tank2(self):
     if self.state['tank1_state'] != 'emptying':
       return
-    if self.state['pump1_last_on'] is None:
-      raise Exception(
-        'Pump 1 should have been running if we are in the emptying state.')
     now = datetime.now()
+    wait_time = timedelta(seconds=self.pump_settings['pump2']['wait_time'])
+    if self.state['pump1_last_on'] is None:
+      print(f'WARNING: we are in emptying state but we don\'t know when tank1 was filled')
+      if self.sensor_pins['tank1_max_level'].is_active:
+        print(f'WARNING: tank1 is full, setting pump1_last_on to {now}')
+        self.state['pump1_last_on'] = now.isoformat()
+      else:
+        print(f'WARNING: tank1 is not full, setting pump1_last_on to {now - wait_time}')
+        self.state['pump1_last_on'] = (now - wait_time).isoformat()
     tank1_filled_at = datetime.fromisoformat(self.state['pump1_last_on'])
     elapsed = now - tank1_filled_at
-    wait_time = timedelta(seconds=self.pump_settings['pump2']['wait_time'])
     if elapsed < wait_time:
       return
-    if not self.sensor_pins['tank2_max_level'].is_active:
-      self.start_pump('pump2', 'tank2 is not full')
-    if self.sensor_pins['tank2_max_level'].is_active:
-      self.stop_pump('pump2', 'tank2 is full')
+
     if not self.sensor_pins['tank1_min_level'].is_active:
       self.set_tank1_state('filling', 'tank1 is empty')
       self.stop_pump('pump2', 'tank1 is empty')
+    elif not self.sensor_pins['tank2_max_level'].is_active:
+      self.start_pump('pump2', 'tank2 is not full')
+    else:
+      self.stop_pump('pump2', 'tank2 is full')
 
   def set_tank1_state(self, state, why=None):
     if state not in ['filling', 'emptying']:

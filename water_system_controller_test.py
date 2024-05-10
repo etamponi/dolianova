@@ -90,6 +90,37 @@ class TestWaterSystemController(unittest.TestCase):
     time.sleep(1)
     controller.sensor_pins['tank1_min_level'].pin.drive_high()
     controller.step()
+  
+  def test_tank1_is_full_but_we_dont_know_when(self):
+    controller = WaterSystemController(self.config)
+    print()
+    
+    # Let's start with tank1 full and tank2 empty:
+    controller.sensor_pins['tank1_min_level'].pin.drive_low()
+    controller.sensor_pins['tank1_max_level'].pin.drive_low()
+    controller.sensor_pins['tank2_min_level'].pin.drive_high()
+    controller.sensor_pins['tank2_max_level'].pin.drive_high()
+    controller.print_state()
+
+    controller.step()
+    time.sleep(1)
+    controller.step()
+
+  def test_tank1_is_not_full_but_we_are_in_emptying_state(self):
+    controller = WaterSystemController(self.config)
+    print()
+    
+    # Let's start with tank1 half-full and tank2 empty:
+    controller.sensor_pins['tank1_min_level'].pin.drive_low()
+    controller.sensor_pins['tank1_max_level'].pin.drive_high()
+    controller.sensor_pins['tank2_min_level'].pin.drive_high()
+    controller.sensor_pins['tank2_max_level'].pin.drive_high()
+    # For some reason, we are in the emptying state.
+    controller.state['tank1_state'] = 'emptying'
+
+    controller.step()
+    time.sleep(1)
+    controller.step()
 
   def tearDown(self):
     # Remove the state file if needed
