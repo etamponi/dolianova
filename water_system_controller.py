@@ -65,7 +65,7 @@ class WaterSystemController:
       if self.sensor_pins['tank1_max_level'].is_active and self.state['pump1_running']:
         print('WARNING: Tank1 should not be filling while it is full')
       if self.state['pump2_running']:
-        print(f'WARNING: pump2 should not be running while tank1 is filling')
+        print('WARNING: pump2 should not be running while tank1 is filling')
       if self.state['pump1_running']:
         pump1_start_time = datetime.fromisoformat(self.state['pump1_start_time'])
         duration = now - pump1_start_time
@@ -156,7 +156,7 @@ class WaterSystemController:
     now = datetime.now()
     wait_time = timedelta(seconds=self.pump_settings['pump2']['wait_time'])
     if self.state['pump1_last_on'] is None:
-      print(f'WARNING: we are in emptying state but we don\'t know when tank1 was filled')
+      print("WARNING: we are in emptying state but we don't know when tank1 was filled")
       if self.sensor_pins['tank1_max_level'].is_active:
         print(f'WARNING: tank1 is full, setting pump1_last_on to {now}')
         self.state['pump1_last_on'] = now.isoformat()
