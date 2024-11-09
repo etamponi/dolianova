@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Stato del Sistema di Pompaggio">
+    <meta name="keywords" content="pompa, serbatoio, acqua, sistema, pompaggio">
+    <title>Stato del Sistema</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .pump-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .running {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .stopped {
+            background-color: #f44336;
+            color: white;
+        }
+        .tank-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            background-color: #2196F3;
+            color: white;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+  </head>
+  <body>
+    <h1>Stato del Sistema di Pompaggio</h1>
+    <div class="card">
+      <h2>Pompa 1</h2>
+      <p>
+        Stato:
+        <span class="pump-status {% if state.pump1_running %}running{% else %}stopped{% endif %}">
+          {% if state.pump1_running %}
+            In Funzione
+          {% else %}
+            Ferma
+          {% endif %}
+        </span>
+      </p>
+      {% if state.pump1_last_on %}
+        <p class="timestamp">Spenta: {{ state.pump1_last_on.strftime("%d/%m/%Y %H:%M:%S") }}</p>
+      {% endif %}
+      {% if state.pump1_start_time %}
+        <p class="timestamp">Avviata: {{ state.pump1_start_time.strftime("%d/%m/%Y %H:%M:%S") }}</p>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h2>Pompa 2</h2>
+      <p>
+        Stato:
+        <span class="pump-status {% if state.pump2_running %}running{% else %}stopped{% endif %}">
+          {% if state.pump2_running %}
+            In Funzione
+          {% else %}
+            Ferma
+          {% endif %}
+        </span>
+      </p>
+      {% if state.pump2_last_on %}
+        <p class="timestamp">Spenta: {{ state.pump2_last_on.strftime("%d/%m/%Y %H:%M:%S") }}</p>
+      {% endif %}
+      {% if state.pump2_start_time %}
+        <p class="timestamp">Avviata: {{ state.pump2_start_time.strftime("%d/%m/%Y %H:%M:%S") }}</p>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h2>Serbatoio 1</h2>
+      {% if state.tank1_state %}
+        <p>
+          Stato:
+          <span class="tank-status">
+            {% if state.tank1_state == "filling" %}
+              In Riempimento
+            {% elif state.tank1_state == "emptying" %}
+              In Svuotamento
+            {% endif %}
+          </span>
+        </p>
+      {% else %}
+        <p>
+          Stato: <span class="pump-status stopped">Sconosciuto</span>
+        </p>
+      {% endif %}
+    </div>
+  </body>
+</html>
