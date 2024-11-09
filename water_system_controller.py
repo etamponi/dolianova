@@ -35,8 +35,6 @@ class WaterSystemController:
         "pump1_start_time": None,
         "pump2_start_time": None,
         "tank1_state": "filling",
-        "pump1_state": None,
-        "pump2_state": None,
       }
 
   def write_state(self):
