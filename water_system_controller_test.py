@@ -47,7 +47,7 @@ class TestWaterSystemController(unittest.TestCase):
     start_time = controller.state['pump1_start_time']
     time.sleep(1)
     controller.start_pump('pump1')
-    self.assertEquals(start_time, controller.state['pump1_start_time'])
+    self.assertEqual(start_time, controller.state['pump1_start_time'])
 
   def test_step(self):
     controller = WaterSystemController(self.config)
