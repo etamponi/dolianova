@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from dolianova import (
   Context,
+  Controller,
   FakeTank,
   FillLowerTank,
   FillUpperTank,
@@ -108,6 +109,28 @@ def context_factory(
     state_activated_at=state_activated_at or datetime.now(),
   )
   return context
+
+
+def measures_factory(
+  time: datetime = datetime.now(),
+  well_level: int = 50,
+  lower_tank_level: TankLevel = TankLevel.MEDIUM,
+  upper_tank_level: TankLevel = TankLevel.MEDIUM,
+  well_to_lower_tank_pump_active: bool = False,
+  lower_to_upper_tank_pump_active: bool = False,
+  current_state: type[State] = FillWell,
+  state_activated_at: datetime = datetime.now(),
+) -> Measures:
+  return Measures(
+    time=time,
+    well_level=well_level,
+    lower_tank_level=lower_tank_level,
+    upper_tank_level=upper_tank_level,
+    well_to_lower_tank_pump_active=well_to_lower_tank_pump_active,
+    lower_to_upper_tank_pump_active=lower_to_upper_tank_pump_active,
+    current_state=current_state,
+    state_activated_at=state_activated_at,
+  )
 
 
 class TestFillWell(unittest.TestCase):
@@ -320,6 +343,17 @@ class TestContext(unittest.TestCase):
       context.check()
       self.assertEqual(context.current_state, FillLowerTank)
       self.assertEqual(context.state_activated_at, mock_now)
+  
+  def test_check_updates_state_multiple_times(self):
+    # Example: FillUpperTank -> FillLowerTank -> FillWell in one go.
+    context = context_factory(
+      well=well_factory(level=0),
+      lower_tank=FakeTank(TankLevel.EMPTY),
+      upper_tank=FakeTank(TankLevel.MEDIUM),
+      current_state=FillUpperTank,
+    )
+    context.check()
+    self.assertEqual(context.current_state, FillWell)
 
   def test_action_calls_current_state(self):
     class FakeState(State):
@@ -373,7 +407,7 @@ class TestContext(unittest.TestCase):
       well_to_lower_tank_pump_pin="GPIO6",
       lower_to_upper_tank_pump_pin="GPIO7",
     )
-    measures = Measures(
+    measures = measures_factory(
       time=datetime.now() - timedelta(minutes=30),
       well_level=25,
       lower_tank_level=TankLevel.MEDIUM,
@@ -441,10 +475,10 @@ class TestMeasures(unittest.TestCase):
       # This activates the lower_to_upper_tank_pump,
       # because FillUpperTank is the current state.
       context.action()
-      measures = Measures.from_context(context)
+      measures = context.measures()
       self.assertEqual(
         measures,
-        Measures(
+        measures_factory(
           time=mock_now,
           well_level=87,
           lower_tank_level=TankLevel.MEDIUM,
@@ -459,7 +493,7 @@ class TestMeasures(unittest.TestCase):
       self.assertEqual(measures.time, mock_now)
 
   def test_serialization(self):
-    measures = Measures(
+    measures = measures_factory(
       time=datetime(2024, 1, 1, 12, 0, 0),
       well_level=87,
       lower_tank_level=TankLevel.MEDIUM,
@@ -528,7 +562,7 @@ class TestSettings(unittest.TestCase):
 
 class TestHistory(unittest.TestCase):
   def test_history_copies_measures(self):
-    measures = Measures(
+    measures = measures_factory(
       time=datetime(2024, 1, 1, 12, 0, 0),
       well_level=87,
       lower_tank_level=TankLevel.MEDIUM,
@@ -542,9 +576,28 @@ class TestHistory(unittest.TestCase):
     history.add(measures)
     self.assertEqual(history.measures, [measures])
     self.assertIsNot(history.measures[0], measures)
+  
+  def test_history_works(self):
+    measures = measures_factory(
+      time=datetime(2024, 1, 1, 12, 0, 0),
+      well_level=87,
+      lower_tank_level=TankLevel.MEDIUM,
+      upper_tank_level=TankLevel.FULL,
+      well_to_lower_tank_pump_active=False,
+      lower_to_upper_tank_pump_active=True,
+      current_state=FillUpperTank,
+      state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
+    )
+    history = History()
+    history.add(measures)
+    self.assertEqual(history.measures, [measures])
+    new_measures = measures.copy()
+    new_measures.well_level = 88
+    history.add(new_measures)
+    self.assertEqual(history.measures, [measures, new_measures])
 
   def test_history_does_not_repeat(self):
-    measures = Measures(
+    measures = measures_factory(
       time=datetime(2024, 1, 1, 12, 0, 0),
       well_level=87,
       lower_tank_level=TankLevel.MEDIUM,
@@ -564,3 +617,12 @@ class TestHistory(unittest.TestCase):
     history.add(measures)
     # Different time, but same otherwise: it should be replaced.
     self.assertEqual(history.measures, [measures])
+
+
+class TestController(unittest.TestCase):
+  def test_run_writes_history(self):
+    context = context_factory()
+    history = History()
+    controller = Controller(context, history)
+    controller.run()
+    self.assertListEqual(history.measures, [context.measures()])

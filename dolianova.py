@@ -6,14 +6,10 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import TypeGuard, override
 
-from gpiozero import Button, LED  # type: ignore
-
+import fire  # type: ignore
+from gpiozero import LED, Button  # type: ignore
 
 type PinID = int | str
-
-
-def is_pin_id(value: object) -> TypeGuard[PinID]:
-  return isinstance(value, int) or isinstance(value, str)
 
 
 class TankLevel(StrEnum):
@@ -166,21 +162,31 @@ class Context:
   def __post_init__(self) -> None:
     self.well_to_lower_tank_pump.add_listener(self.well)
 
-  def check(self) -> type[State]:
+  def check(self):
     new_state = self.current_state.check(self)
-    if new_state != self.current_state:
+    while new_state != self.current_state:
       self.current_state = new_state
       self.state_activated_at = datetime.now()
-    return self.current_state
+      new_state = self.current_state.check(self)
 
   def action(self) -> None:
     self.current_state.action(self)
 
   @property
   def same_state_since(self) -> timedelta:
-    if self.state_activated_at is None:
-      raise ValueError("State not activated yet")
     return datetime.now() - self.state_activated_at
+
+  def measures(self) -> Measures:
+    return Measures(
+      time=datetime.now(),
+      well_level=self.well.level,
+      lower_tank_level=self.lower_tank.level,
+      upper_tank_level=self.upper_tank.level,
+      well_to_lower_tank_pump_active=self.well_to_lower_tank_pump.active,
+      lower_to_upper_tank_pump_active=self.lower_to_upper_tank_pump.active,
+      current_state=self.current_state,
+      state_activated_at=self.state_activated_at,
+    )
 
   @staticmethod
   def from_settings_and_measures(settings: Settings, measures: Measures) -> Context:
@@ -319,16 +325,16 @@ class Measures:
   state_activated_at: datetime
 
   @staticmethod
-  def from_context(context: Context) -> Measures:
+  def initial() -> Measures:
     return Measures(
       time=datetime.now(),
-      well_level=context.well.level,
-      lower_tank_level=context.lower_tank.level,
-      upper_tank_level=context.upper_tank.level,
-      well_to_lower_tank_pump_active=context.well_to_lower_tank_pump.active,
-      lower_to_upper_tank_pump_active=context.lower_to_upper_tank_pump.active,
-      current_state=context.current_state,
-      state_activated_at=context.state_activated_at,
+      well_level=0,
+      lower_tank_level=TankLevel.EMPTY,
+      upper_tank_level=TankLevel.EMPTY,
+      well_to_lower_tank_pump_active=False,
+      lower_to_upper_tank_pump_active=False,
+      current_state=FillWell,
+      state_activated_at=datetime.now(),
     )
 
   @staticmethod
@@ -366,6 +372,10 @@ class Measures:
 
   def copy(self):
     return Measures.deserialize(self.serialize())
+
+
+def is_pin_id(value: object) -> TypeGuard[PinID]:
+  return isinstance(value, int) or isinstance(value, str)
 
 
 def is_number(value: object) -> TypeGuard[int | float]:
@@ -442,3 +452,27 @@ class History:
     for measures_data in data:
       history.add(Measures.deserialize(measures_data))
     return history
+
+
+class Controller:
+  def __init__(self, context: Context, history: History) -> None:
+    self.context = context
+    self.history = history
+
+  def run(self) -> None:
+    self.context.check()
+    self.context.action()
+    self.history.add(self.context.measures())
+
+
+def main(
+  *,
+  settings_file: str = "settings.json",
+  measures_file: str = "measures.json",
+  history_file: str = "history.json",
+) -> None:
+  pass
+
+
+if __name__ == "__main__":
+  fire.Fire(main)  # type: ignore
