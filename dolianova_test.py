@@ -492,7 +492,7 @@ class TestMeasures(unittest.TestCase):
       # time is not part of the above comparison.
       self.assertEqual(measures.time, mock_now)
 
-  def test_serialization(self):
+  def test_serialization_and_copy(self):
     measures = measures_factory(
       time=datetime(2024, 1, 1, 12, 0, 0),
       well_level=87,
@@ -503,15 +503,9 @@ class TestMeasures(unittest.TestCase):
       current_state=FillUpperTank,
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
-    self.assertEqual(
-      Measures.deserialize(measures.serialize()),
-      measures,
-    )
-    # time is not part of the above comparison.
-    self.assertEqual(
-      Measures.deserialize(measures.serialize()).time,
-      measures.time,
-    )
+    # Copy happens by serialization and deserialization.
+    self.assertEqual(measures.copy(), measures)
+    self.assertEqual(measures.copy().time, measures.time)
 
 
 class TestSettings(unittest.TestCase):
