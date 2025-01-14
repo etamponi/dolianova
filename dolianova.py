@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -338,7 +340,8 @@ class Measures:
     )
 
   @staticmethod
-  def deserialize(data: dict[str, object]) -> Measures:
+  def deserialize(s: str) -> Measures:
+    data: dict[str, object] = json.loads(s)
     assert isinstance(data["time"], str)
     assert isinstance(data["well_level"], int)
     assert isinstance(data["lower_tank_level"], str)
@@ -358,17 +361,20 @@ class Measures:
       state_activated_at=datetime.fromisoformat(data["state_activated_at"]),
     )
 
-  def serialize(self) -> dict[str, object]:
-    return {
-      "time": self.time.isoformat(),
-      "well_level": self.well_level,
-      "lower_tank_level": self.lower_tank_level.value,
-      "upper_tank_level": self.upper_tank_level.value,
-      "well_to_lower_tank_pump_active": self.well_to_lower_tank_pump_active,
-      "lower_to_upper_tank_pump_active": self.lower_to_upper_tank_pump_active,
-      "current_state": self.current_state.__name__,
-      "state_activated_at": self.state_activated_at.isoformat(),
-    }
+  def serialize(self) -> str:
+    return json.dumps(
+      {
+        "time": self.time.isoformat(),
+        "well_level": self.well_level,
+        "lower_tank_level": self.lower_tank_level.value,
+        "upper_tank_level": self.upper_tank_level.value,
+        "well_to_lower_tank_pump_active": self.well_to_lower_tank_pump_active,
+        "lower_to_upper_tank_pump_active": self.lower_to_upper_tank_pump_active,
+        "current_state": self.current_state.__name__,
+        "state_activated_at": self.state_activated_at.isoformat(),
+      },
+      indent=2,
+    )
 
   def copy(self):
     return Measures.deserialize(self.serialize())
@@ -395,7 +401,8 @@ class Settings:
   lower_to_upper_tank_pump_pin: PinID
 
   @staticmethod
-  def deserialize(data: dict[str, object]) -> Settings:
+  def deserialize(s: str) -> Settings:
+    data: dict[str, object] = json.loads(s)
     assert is_number(data["fill_period"])
     assert is_number(data["empty_period"])
     assert is_number(data["settle_time"])
@@ -417,41 +424,46 @@ class Settings:
       lower_to_upper_tank_pump_pin=data["lower_to_upper_tank_pump_pin"],
     )
 
-  def serialize(self) -> dict[str, object]:
-    return {
-      "fill_period": self.fill_period.total_seconds(),
-      "empty_period": self.empty_period.total_seconds(),
-      "settle_time": self.settle_time.total_seconds(),
-      "lower_tank_low_floater_pin": self.lower_tank_low_floater_pin,
-      "lower_tank_high_floater_pin": self.lower_tank_high_floater_pin,
-      "upper_tank_low_floater_pin": self.upper_tank_low_floater_pin,
-      "upper_tank_high_floater_pin": self.upper_tank_high_floater_pin,
-      "well_to_lower_tank_pump_pin": self.well_to_lower_tank_pump_pin,
-      "lower_to_upper_tank_pump_pin": self.lower_to_upper_tank_pump_pin,
-    }
+  def serialize(self) -> str:
+    return json.dumps(
+      {
+        "fill_period": self.fill_period.total_seconds(),
+        "empty_period": self.empty_period.total_seconds(),
+        "settle_time": self.settle_time.total_seconds(),
+        "lower_tank_low_floater_pin": self.lower_tank_low_floater_pin,
+        "lower_tank_high_floater_pin": self.lower_tank_high_floater_pin,
+        "upper_tank_low_floater_pin": self.upper_tank_low_floater_pin,
+        "upper_tank_high_floater_pin": self.upper_tank_high_floater_pin,
+        "well_to_lower_tank_pump_pin": self.well_to_lower_tank_pump_pin,
+        "lower_to_upper_tank_pump_pin": self.lower_to_upper_tank_pump_pin,
+      },
+      indent=2,
+    )
 
 
+@dataclass
 class History:
-  def __init__(self) -> None:
-    self.measures: list[Measures] = []
+  measures: dict[datetime, Measures] = field(default_factory=dict)
 
   def add(self, measures: Measures) -> None:
     # If new measures are the same as the last one, update the last one.
     # Except for the time, of course.
-    if self.measures and self.measures[-1] == measures:
-      self.measures[-1] = measures.copy()
+    if len(self.measures) and next(reversed(self.measures.values())) == measures:
+      old_time, _ = self.measures.popitem()
+      self.measures[old_time] = measures.copy()
     else:
-      self.measures.append(measures.copy())
+      self.measures[measures.time] = measures.copy()
 
-  def serialize(self) -> list[dict[str, object]]:
-    return [measures.serialize() for measures in self.measures]
+  def serialize(self) -> str:
+    return json.dumps({t.isoformat(): m.serialize() for t, m in self.measures.items()})
 
   @staticmethod
-  def deserialize(data: list[dict[str, object]]) -> History:
-    history = History()
-    for measures_data in data:
-      history.add(Measures.deserialize(measures_data))
-    return history
+  def deserialize(s: str) -> History:
+    data: dict[str, str] = json.loads(s)
+    measures = {
+      datetime.fromisoformat(t): Measures.deserialize(m) for t, m in data.items()
+    }
+    return History(measures)
 
 
 class Controller:

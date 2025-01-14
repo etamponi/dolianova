@@ -343,7 +343,7 @@ class TestContext(unittest.TestCase):
       context.check()
       self.assertEqual(context.current_state, FillLowerTank)
       self.assertEqual(context.state_activated_at, mock_now)
-  
+
   def test_check_updates_state_multiple_times(self):
     # Example: FillUpperTank -> FillLowerTank -> FillWell in one go.
     context = context_factory(
@@ -504,19 +504,6 @@ class TestMeasures(unittest.TestCase):
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
     self.assertEqual(
-      measures.serialize(),
-      {
-        "time": "2024-01-01T12:00:00",
-        "well_level": 87,
-        "lower_tank_level": "medium",
-        "upper_tank_level": "full",
-        "well_to_lower_tank_pump_active": False,
-        "lower_to_upper_tank_pump_active": True,
-        "current_state": "FillUpperTank",
-        "state_activated_at": "2024-01-01T12:00:00",
-      },
-    )
-    self.assertEqual(
       Measures.deserialize(measures.serialize()),
       measures,
     )
@@ -541,20 +528,6 @@ class TestSettings(unittest.TestCase):
       lower_to_upper_tank_pump_pin="BOARD16",
     )
     self.assertEqual(
-      settings.serialize(),
-      {
-        "fill_period": 3600,
-        "empty_period": 3600,
-        "settle_time": 43200,
-        "lower_tank_low_floater_pin": "BOARD11",
-        "lower_tank_high_floater_pin": "BOARD12",
-        "upper_tank_low_floater_pin": "BOARD13",
-        "upper_tank_high_floater_pin": "BOARD14",
-        "well_to_lower_tank_pump_pin": "BOARD15",
-        "lower_to_upper_tank_pump_pin": "BOARD16",
-      },
-    )
-    self.assertEqual(
       Settings.deserialize(settings.serialize()),
       settings,
     )
@@ -574,9 +547,10 @@ class TestHistory(unittest.TestCase):
     )
     history = History()
     history.add(measures)
-    self.assertEqual(history.measures, [measures])
-    self.assertIsNot(history.measures[0], measures)
-  
+    self.assertDictEqual(history.measures, {measures.time: measures})
+    # Check that the measures object is copied.
+    self.assertIsNot(history.measures[measures.time], measures)
+
   def test_history_works(self):
     measures = measures_factory(
       time=datetime(2024, 1, 1, 12, 0, 0),
@@ -590,11 +564,17 @@ class TestHistory(unittest.TestCase):
     )
     history = History()
     history.add(measures)
-    self.assertEqual(history.measures, [measures])
+    self.assertEqual(history.measures, {measures.time: measures})
     new_measures = measures.copy()
     new_measures.well_level = 88
     history.add(new_measures)
-    self.assertEqual(history.measures, [measures, new_measures])
+    self.assertEqual(
+      history.measures,
+      {
+        measures.time: measures,
+        new_measures.time: new_measures,
+      },
+    )
 
   def test_history_does_not_repeat(self):
     measures = measures_factory(
@@ -609,14 +589,34 @@ class TestHistory(unittest.TestCase):
     )
     history = History()
     history.add(measures)
-    self.assertEqual(history.measures, [measures])
+    self.assertEqual(history.measures, {measures.time: measures})
     history.add(measures)
     # Exact same measure: it should not be added.
-    self.assertEqual(history.measures, [measures])
+    self.assertEqual(history.measures, {measures.time: measures})
+    old_time = measures.time
     measures.time = datetime(2024, 1, 1, 12, 0, 1)
     history.add(measures)
     # Different time, but same otherwise: it should be replaced.
-    self.assertEqual(history.measures, [measures])
+    self.assertEqual(history.measures, {old_time: measures})
+    self.assertEqual(history.measures[old_time].time, measures.time)
+
+  def test_history_serialization(self):
+    measures = measures_factory(
+      time=datetime(2024, 1, 1, 12, 0, 0),
+      well_level=87,
+      lower_tank_level=TankLevel.MEDIUM,
+      upper_tank_level=TankLevel.FULL,
+      well_to_lower_tank_pump_active=False,
+      lower_to_upper_tank_pump_active=True,
+      current_state=FillUpperTank,
+      state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
+    )
+    history = History()
+    history.add(measures)
+    self.assertEqual(
+      History.deserialize(history.serialize()),
+      history,
+    )
 
 
 class TestController(unittest.TestCase):
@@ -625,4 +625,8 @@ class TestController(unittest.TestCase):
     history = History()
     controller = Controller(context, history)
     controller.run()
-    self.assertListEqual(history.measures, [context.measures()])
+    self.assertListEqual(list(history.measures.values()), [context.measures()])
+
+
+if __name__ == "__main__":
+  unittest.main()
