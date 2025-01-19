@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import json
-
+import pathlib as pl
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
+from time import sleep
 from typing import TypeGuard, override
 
 import fire  # type: ignore
+import json5 as json  # type: ignore
 from gpiozero import LED, Button  # type: ignore
 
 type PinID = int | str
@@ -341,7 +342,7 @@ class Measures:
 
   @staticmethod
   def deserialize(s: str) -> Measures:
-    data: dict[str, object] = json.loads(s)
+    data: dict[str, object] = json.loads(s)  # type: ignore
     assert isinstance(data["time"], str)
     assert isinstance(data["well_level"], int)
     assert isinstance(data["lower_tank_level"], str)
@@ -362,7 +363,7 @@ class Measures:
     )
 
   def serialize(self) -> str:
-    return json.dumps(
+    return json.dumps(  # type: ignore
       {
         "time": self.time.isoformat(),
         "well_level": self.well_level,
@@ -402,7 +403,7 @@ class Settings:
 
   @staticmethod
   def deserialize(s: str) -> Settings:
-    data: dict[str, object] = json.loads(s)
+    data: dict[str, object] = json.loads(s)  # type: ignore
     assert is_number(data["fill_period"])
     assert is_number(data["empty_period"])
     assert is_number(data["settle_time"])
@@ -425,7 +426,7 @@ class Settings:
     )
 
   def serialize(self) -> str:
-    return json.dumps(
+    return json.dumps(  # type: ignore
       {
         "fill_period": self.fill_period.total_seconds(),
         "empty_period": self.empty_period.total_seconds(),
@@ -446,20 +447,19 @@ class History:
   measures: dict[datetime, Measures] = field(default_factory=dict)
 
   def add(self, measures: Measures) -> None:
-    # If new measures are the same as the last one, update the last one.
+    # If new measures are the same as the last one, do nothing.
     # Except for the time, of course.
     if len(self.measures) and next(reversed(self.measures.values())) == measures:
-      old_time, _ = self.measures.popitem()
-      self.measures[old_time] = measures.copy()
+      pass
     else:
       self.measures[measures.time] = measures.copy()
 
   def serialize(self) -> str:
-    return json.dumps({t.isoformat(): m.serialize() for t, m in self.measures.items()})
+    return json.dumps({t.isoformat(): m.serialize() for t, m in self.measures.items()})  # type: ignore
 
   @staticmethod
   def deserialize(s: str) -> History:
-    data: dict[str, str] = json.loads(s)
+    data: dict[str, str] = json.loads(s)  # type: ignore
     measures = {
       datetime.fromisoformat(t): Measures.deserialize(m) for t, m in data.items()
     }
@@ -467,14 +467,53 @@ class History:
 
 
 class Controller:
-  def __init__(self, context: Context, history: History) -> None:
-    self.context = context
-    self.history = history
+  def __init__(
+    self,
+    settings_file: str,
+    measures_file: str,
+    history_file: str,
+  ) -> None:
+    self.settings_file = settings_file
+    self.measures_file = measures_file
+    self.history_file = history_file
+
+    self.context: Context
+    self.history: History
+
+  def load(self) -> None:
+    if not pl.Path(self.settings_file).exists():
+      raise FileNotFoundError(f"Settings file {self.settings_file} not found.")
+    with open(self.settings_file) as f:
+      settings = Settings.deserialize(f.read())
+    
+    # Load measures and history if they exist.
+    if pl.Path(self.measures_file).exists():
+      with open(self.measures_file) as f:
+        measures = Measures.deserialize(f.read())
+    else:
+      measures = Measures.initial()
+    if pl.Path(self.history_file).exists():
+      with open(self.history_file) as f:
+        self.history = History.deserialize(f.read())
+    else:
+      self.history = History()
+
+    self.context = Context.from_settings_and_measures(settings, measures)
 
   def run(self) -> None:
+    history_length = len(self.history.measures)
     self.context.check()
     self.context.action()
-    self.history.add(self.context.measures())
+    measures = self.context.measures()
+    self.history.add(measures)
+    # Save measures and history if they have changed.
+    # TODO: also every minute.
+    # TODO: make atomic.
+    if len(self.history.measures) > history_length:
+      with open(self.measures_file, "w") as f:
+        f.write(measures.serialize())
+      with open(self.history_file, "w") as f:
+        f.write(self.history.serialize())
 
 
 def main(

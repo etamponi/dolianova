@@ -1,7 +1,12 @@
+import pathlib as pl
+import shutil
 import typing
 import unittest
 from datetime import datetime, timedelta
 from unittest.mock import patch
+
+from gpiozero import Device  # type: ignore
+from gpiozero.pins.mock import MockFactory  # type: ignore
 
 from dolianova import (
   Context,
@@ -23,9 +28,6 @@ from dolianova import (
   UpperTankInUse,
   Well,
 )
-
-from gpiozero import Device  # type: ignore
-from gpiozero.pins.mock import MockFactory  # type: ignore
 
 Device.pin_factory = MockFactory()
 
@@ -130,6 +132,30 @@ def measures_factory(
     lower_to_upper_tank_pump_active=lower_to_upper_tank_pump_active,
     current_state=current_state,
     state_activated_at=state_activated_at,
+  )
+
+
+def settings_factory(
+  fill_period: timedelta = timedelta(hours=1),
+  empty_period: timedelta = timedelta(hours=1),
+  settle_time: timedelta = timedelta(hours=12),
+  lower_tank_low_floater_pin: str = "GPIO2",
+  lower_tank_high_floater_pin: str = "GPIO3",
+  upper_tank_low_floater_pin: str = "GPIO4",
+  upper_tank_high_floater_pin: str = "GPIO5",
+  well_to_lower_tank_pump_pin: str = "GPIO6",
+  lower_to_upper_tank_pump_pin: str = "GPIO7",
+) -> Settings:
+  return Settings(
+    fill_period=fill_period,
+    empty_period=empty_period,
+    settle_time=settle_time,
+    lower_tank_low_floater_pin=lower_tank_low_floater_pin,
+    lower_tank_high_floater_pin=lower_tank_high_floater_pin,
+    upper_tank_low_floater_pin=upper_tank_low_floater_pin,
+    upper_tank_high_floater_pin=upper_tank_high_floater_pin,
+    well_to_lower_tank_pump_pin=well_to_lower_tank_pump_pin,
+    lower_to_upper_tank_pump_pin=lower_to_upper_tank_pump_pin,
   )
 
 
@@ -396,17 +422,7 @@ class TestContext(unittest.TestCase):
 
   @typing.no_type_check
   def test_from_settings_and_measures(self):
-    settings = Settings(
-      fill_period=timedelta(hours=1),
-      empty_period=timedelta(hours=1),
-      settle_time=timedelta(hours=12),
-      lower_tank_low_floater_pin="GPIO2",
-      lower_tank_high_floater_pin="GPIO3",
-      upper_tank_low_floater_pin="GPIO4",
-      upper_tank_high_floater_pin="GPIO5",
-      well_to_lower_tank_pump_pin="GPIO6",
-      lower_to_upper_tank_pump_pin="GPIO7",
-    )
+    settings = settings_factory()
     measures = measures_factory(
       time=datetime.now() - timedelta(minutes=30),
       well_level=25,
@@ -510,17 +526,7 @@ class TestMeasures(unittest.TestCase):
 
 class TestSettings(unittest.TestCase):
   def test_serialization(self):
-    settings = Settings(
-      fill_period=timedelta(hours=1),
-      empty_period=timedelta(hours=1),
-      settle_time=timedelta(hours=12),
-      lower_tank_low_floater_pin="BOARD11",
-      lower_tank_high_floater_pin="BOARD12",
-      upper_tank_low_floater_pin="BOARD13",
-      upper_tank_high_floater_pin="BOARD14",
-      well_to_lower_tank_pump_pin="BOARD15",
-      lower_to_upper_tank_pump_pin="BOARD16",
-    )
+    settings = settings_factory()
     self.assertEqual(
       Settings.deserialize(settings.serialize()),
       settings,
@@ -590,9 +596,9 @@ class TestHistory(unittest.TestCase):
     old_time = measures.time
     measures.time = datetime(2024, 1, 1, 12, 0, 1)
     history.add(measures)
-    # Different time, but same otherwise: it should be replaced.
+    # Different time, but same otherwise: do nothing.
     self.assertEqual(history.measures, {old_time: measures})
-    self.assertEqual(history.measures[old_time].time, measures.time)
+    self.assertNotEqual(history.measures[old_time].time, measures.time)
 
   def test_history_serialization(self):
     measures = measures_factory(
@@ -613,13 +619,230 @@ class TestHistory(unittest.TestCase):
     )
 
 
+def assert_is_file(path: str) -> None:
+  if not pl.Path(path).resolve().is_file():
+    raise AssertionError("File does not exist: %s" % str(path))
+
+
 class TestController(unittest.TestCase):
-  def test_run_writes_history(self):
-    context = context_factory()
-    history = History()
-    controller = Controller(context, history)
+  def setUp(self) -> None:
+    # Create directory to store temporary files.
+    pl.Path("/tmp/dolianova_tests").mkdir(exist_ok=True)
+
+  def tearDown(self) -> None:
+    try:
+      # Remove directory even if it is not empty.
+      shutil.rmtree("/tmp/dolianova_tests")
+    except Exception:
+      pass
+
+  def test_controller_loads_settings(self):
+    controller = Controller(
+      settings_file="settings.json",
+      measures_file="/tmp/dolianova_tests/measures.json",
+      history_file="/tmp/dolianova_tests/history.json",
+    )
+    controller.load()
+    self.assertIsInstance(controller.context, Context)
+
+  def test_controller_run_writes_measures_and_history(self):
+    controller = Controller(
+      settings_file="settings.json",
+      measures_file="/tmp/dolianova_tests/measures.json",
+      history_file="/tmp/dolianova_tests/history.json",
+    )
+    controller.load()
     controller.run()
-    self.assertListEqual(list(history.measures.values()), [context.measures()])
+    assert_is_file("/tmp/dolianova_tests/measures.json")
+    assert_is_file("/tmp/dolianova_tests/history.json")
+
+  def test_controller_runs_through_the_states(self):
+    # This only simulates the first 5 hours of the process.
+    with patch("dolianova.datetime", wraps=datetime) as mock_datetime:
+      # Freeze time.
+      mock_now = datetime.now()
+      mock_datetime.now.return_value = mock_now
+
+      controller = Controller(
+        settings_file="settings.json",
+        measures_file="/tmp/dolianova_tests/measures.json",
+        history_file="/tmp/dolianova_tests/history.json",
+      )
+      controller.load()
+
+      # For the first 5 hours, wait until the well is full.
+      controller.run()
+      time1 = mock_now
+      measures1 = controller.context.measures()
+      self.assertEqual(controller.context.current_state, FillWell)
+      self.assertEqual(controller.history.measures, {time1: measures1})
+      self.assertEqual(measures1.well_level, 0)
+
+      # Calling run for the first 180 seconds now should not add anything to the history.
+      mock_now += timedelta(seconds=179)
+      mock_datetime.now.return_value = mock_now
+      controller.run()
+      self.assertEqual(controller.context.current_state, FillWell)
+      self.assertEqual(controller.history.measures, {time1: measures1})
+
+      # Calling run now will add a new measure to the history (level goes from 0 to 1).
+      mock_now += timedelta(seconds=1)
+      mock_datetime.now.return_value = mock_now
+      controller.run()
+      time2 = mock_now
+      measures2 = controller.context.measures()
+      self.assertEqual(controller.context.current_state, FillWell)
+      self.assertEqual(
+        controller.history.measures, {time1: measures1, time2: measures2}
+      )
+      self.assertEqual(measures2.well_level, 1)
+
+      mock_now += timedelta(minutes=56)
+      mock_datetime.now.return_value = mock_now
+      controller.run()
+      time3 = mock_now
+      measures3 = controller.context.measures()
+      self.assertEqual(controller.context.current_state, FillWell)
+      self.assertEqual(
+        controller.history.measures,
+        {time1: measures1, time2: measures2, time3: measures3},
+      )
+
+      mock_now += timedelta(hours=4)
+      mock_datetime.now.return_value = mock_now
+      controller.run()
+      time4 = mock_now
+      measures4 = controller.context.measures()
+      self.assertEqual(controller.context.current_state, FillWell)
+
+      # After 5 hours, the well is full, so fill the lower tank.
+      mock_now += timedelta(minutes=1)
+      mock_datetime.now.return_value = mock_now
+      controller.run()
+      time5 = mock_now
+      measures5 = controller.context.measures()
+      self.assertEqual(measures5.current_state, FillLowerTank)
+      self.assertEqual(measures5.lower_tank_level, TankLevel.EMPTY)
+      self.assertEqual(measures5.well_level, 100)
+      self.assertDictEqual(
+        controller.history.measures,
+        {
+          time1: measures1,
+          time2: measures2,
+          time3: measures3,
+          time4: measures4,
+          time5: measures5,
+        },
+      )
+
+  def test_when_controller_stops_well_keeps_filling(self):
+    with patch("dolianova.datetime", wraps=datetime) as mock_datetime:
+      # Freeze time.
+      mock_now = datetime.now()
+      mock_datetime.now.return_value = mock_now
+
+      controller = Controller(
+        settings_file="settings.json",
+        measures_file="/tmp/dolianova_tests/measures.json",
+        history_file="/tmp/dolianova_tests/history.json",
+      )
+      controller.load()
+
+      # First run will write the measures and history files.
+      controller.run()
+
+      # After 2.5 hours, the well is half full.
+      mock_now += timedelta(hours=2.5)
+      mock_datetime.now.return_value = mock_now
+      controller.run()
+      self.assertEqual(controller.context.well.level, 50)
+
+      # Now let's simulate a restart by creating a new controller 2.5 hours later.
+      mock_now += timedelta(hours=2.5)
+      mock_datetime.now.return_value = mock_now
+
+      # Copy the measures and history files to a new location to simulate a restart.
+      pl.Path("/tmp/dolianova_tests/measures.json").replace(
+        "/tmp/dolianova_tests/measures2.json"
+      )
+      pl.Path("/tmp/dolianova_tests/history.json").replace(
+        "/tmp/dolianova_tests/history2.json"
+      )
+
+      # Let's get the measures from the current controller (for comparison).
+      controller.run()
+      measures = controller.context.measures()
+
+      # We need to release the GPIO pins to create a new controller.
+      Device.pin_factory.reset()  # type: ignore
+
+      controller2 = Controller(
+        settings_file="settings.json",
+        measures_file="/tmp/dolianova_tests/measures2.json",
+        history_file="/tmp/dolianova_tests/history2.json",
+      )
+      controller2.load()
+      controller2.run()
+      # We should be in FillLowerTank state.
+      self.assertEqual(controller2.context.current_state, FillLowerTank)
+      # The measures should be equal because both controllers would
+      # only have to wait for the well to fill up.
+      self.assertEqual(controller2.context.well.level, 100)
+      self.assertEqual(measures.well_level, 100)
+
+  def test_when_controller_stops_pumps_go_off(self):
+    with patch("dolianova.datetime", wraps=datetime) as mock_datetime:
+      # Freeze time.
+      mock_now = datetime.now()
+      mock_datetime.now.return_value = mock_now
+
+      controller = Controller(
+        settings_file="settings.json",
+        measures_file="/tmp/dolianova_tests/measures.json",
+        history_file="/tmp/dolianova_tests/history.json",
+      )
+      controller.load()
+
+      # First run will write the measures and history files.
+      controller.run()
+
+      # After 5 hours, we change the state to FillLowerTank.
+      mock_now += timedelta(hours=5)
+      mock_datetime.now.return_value = mock_now
+      controller.run()
+
+      # Now let's simulate a restart by creating a new controller 10 minutes later.
+      mock_now += timedelta(minutes=10)
+      mock_datetime.now.return_value = mock_now
+
+      # Copy the measures and history files to a new location to simulate a restart.
+      pl.Path("/tmp/dolianova_tests/measures.json").replace(
+        "/tmp/dolianova_tests/measures2.json"
+      )
+      pl.Path("/tmp/dolianova_tests/history.json").replace(
+        "/tmp/dolianova_tests/history2.json"
+      )
+
+      # Let's get the measures from the current controller (for comparison).
+      controller.run()
+      measures = controller.context.measures()
+
+      # We need to release the GPIO pins to create a new controller.
+      Device.pin_factory.reset()  # type: ignore
+
+      controller2 = Controller(
+        settings_file="settings.json",
+        measures_file="/tmp/dolianova_tests/measures2.json",
+        history_file="/tmp/dolianova_tests/history2.json",
+      )
+      controller2.load()
+      controller2.run()
+      # We should be in FillLowerTank state.
+      self.assertEqual(controller2.context.current_state, FillLowerTank)
+      # The measures should be different because if controller did not stop,
+      # the well would not be full anymore.
+      self.assertEqual(controller2.context.well.level, 100)
+      self.assertEqual(measures.well_level, 66)
 
 
 if __name__ == "__main__":

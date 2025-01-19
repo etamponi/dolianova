@@ -1,11 +1,11 @@
 {
-  "fill_period": 18000, // Ricarica pozzo: 5 ore
-  "empty_period": 1800, // Svuotamento pozzo: 30 minuti
-  "settle_time": 43200, // Tempo di decantazione: 12 ore
-  "lower_tank_low_floater_pin": "BOARD37", // Pin del sensore di livello basso della cisterna bassa
-  "lower_tank_high_floater_pin": "BOARD36", // Pin del sensore di livello alto della cisterna bassa
-  "upper_tank_low_floater_pin": "BOARD31", // Pin del sensore di livello basso della cisterna alta
-  "upper_tank_high_floater_pin": "BOARD32", // Pin del sensore di livello alto della cisterna alta
-  "well_to_lower_tank_pump_pin": "BOARD15", // Pin della pompa pozzo -> cisterna bassa
-  "lower_to_upper_tank_pump_pin": "BOARD16" // Pin della pompa cisterna bassa -> cisterna alta
+  fill_period: 18000, // Ricarica pozzo: 5 ore
+  empty_period: 1800, // Svuotamento pozzo: 30 minuti
+  settle_time: 43200, // Tempo di decantazione: 12 ore
+  lower_tank_low_floater_pin: "BOARD37", // Pin del sensore di livello basso della cisterna bassa
+  lower_tank_high_floater_pin: "BOARD36", // Pin del sensore di livello alto della cisterna bassa
+  upper_tank_low_floater_pin: "BOARD31", // Pin del sensore di livello basso della cisterna alta
+  upper_tank_high_floater_pin: "BOARD32", // Pin del sensore di livello alto della cisterna alta
+  well_to_lower_tank_pump_pin: "BOARD15", // Pin della pompa pozzo -> cisterna bassa
+  lower_to_upper_tank_pump_pin: "BOARD16" // Pin della pompa cisterna bassa -> cisterna alta
 }
