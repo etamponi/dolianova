@@ -512,7 +512,7 @@ class Controller:
       return True
     last_modified = datetime.fromtimestamp(os.path.getmtime(self.measures_file))
     current_time = datetime.now()
-    return current_time - last_modified > timedelta(minutes=1)
+    return current_time - last_modified > timedelta(minutes=5)
 
   def run(self) -> Measures | None:
     history_length = len(self.history.measures)
