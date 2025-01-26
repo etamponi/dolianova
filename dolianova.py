@@ -239,7 +239,7 @@ class FillWell(State):
   @staticmethod
   def check(context: Context) -> type[State]:
     if context.well.level == 100:
-      return FillLowerTank
+      return FillLargeTank
     return FillWell
 
   @override
@@ -249,15 +249,15 @@ class FillWell(State):
     context.lower_to_small_tank_pump.deactivate()
 
 
-class FillLowerTank(State):
+class FillLargeTank(State):
   @override
   @staticmethod
   def check(context: Context) -> type[State]:
     if context.large_tank.level == TankLevel.FULL:
-      return SettleLowerTank
+      return SettleLargeTank
     if context.well.level == 0:
       return FillWell
-    return FillLowerTank
+    return FillLargeTank
 
   @override
   @staticmethod
@@ -266,15 +266,15 @@ class FillLowerTank(State):
     context.lower_to_small_tank_pump.deactivate()
 
 
-class SettleLowerTank(State):
+class SettleLargeTank(State):
   @override
   @staticmethod
   def check(context: Context) -> type[State]:
     if context.large_tank.level != TankLevel.FULL:
-      return FillLowerTank
+      return FillLargeTank
     if context.same_state_since > context.settle_time:
-      return FillUpperTank
-    return SettleLowerTank
+      return FillSmallTank
+    return SettleLargeTank
 
   @override
   @staticmethod
@@ -283,15 +283,15 @@ class SettleLowerTank(State):
     context.lower_to_small_tank_pump.deactivate()
 
 
-class FillUpperTank(State):
+class FillSmallTank(State):
   @override
   @staticmethod
   def check(context: Context) -> type[State]:
     if context.large_tank.level == TankLevel.EMPTY:
-      return FillLowerTank
+      return FillLargeTank
     if context.small_tank.level == TankLevel.FULL:
-      return UpperTankInUse
-    return FillUpperTank
+      return SmallTankInUse
+    return FillSmallTank
 
   @override
   @staticmethod
@@ -300,15 +300,15 @@ class FillUpperTank(State):
     context.lower_to_small_tank_pump.activate()
 
 
-class UpperTankInUse(State):
+class SmallTankInUse(State):
   @override
   @staticmethod
   def check(context: Context) -> type[State]:
     if context.large_tank.level == TankLevel.EMPTY:
-      return FillLowerTank
+      return FillLargeTank
     if context.small_tank.level == TankLevel.EMPTY:
-      return FillUpperTank
-    return UpperTankInUse
+      return FillSmallTank
+    return SmallTankInUse
 
   @override
   @staticmethod

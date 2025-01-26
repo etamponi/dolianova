@@ -12,8 +12,8 @@ from dolianova import (
   Context,
   Controller,
   FakeTank,
-  FillLowerTank,
-  FillUpperTank,
+  FillLargeTank,
+  FillSmallTank,
   FillWell,
   GPIOPump,
   GPIOTank,
@@ -21,11 +21,11 @@ from dolianova import (
   Measures,
   Pump,
   Settings,
-  SettleLowerTank,
+  SettleLargeTank,
   State,
   Tank,
   TankLevel,
-  UpperTankInUse,
+  SmallTankInUse,
   Well,
 )
 
@@ -166,7 +166,7 @@ class TestFillWell(unittest.TestCase):
       current_state=FillWell,
     )
     next_state = context.current_state.check(context)
-    self.assertEqual(next_state, FillLowerTank)
+    self.assertEqual(next_state, FillLargeTank)
 
   def test_if_well_is_not_full_stay_there(self):
     context = context_factory(
@@ -177,20 +177,20 @@ class TestFillWell(unittest.TestCase):
     self.assertEqual(next_state, context.current_state)
 
 
-class TestFillLowerTank(unittest.TestCase):
+class TestFillLargeTank(unittest.TestCase):
   def test_when_large_tank_is_full_go_to_settle_large_tank(self):
     context = context_factory(
       large_tank=FakeTank(TankLevel.FULL),
-      current_state=FillLowerTank,
+      current_state=FillLargeTank,
     )
     next_state = context.current_state.check(context)
-    self.assertEqual(next_state, SettleLowerTank)
+    self.assertEqual(next_state, SettleLargeTank)
 
   def test_if_large_tank_is_not_full_stay_there(self):
     large_tank = FakeTank(TankLevel.MEDIUM)
     context = context_factory(
       large_tank=large_tank,
-      current_state=FillLowerTank,
+      current_state=FillLargeTank,
     )
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, context.current_state)
@@ -203,26 +203,26 @@ class TestFillLowerTank(unittest.TestCase):
     context = context_factory(
       well=well_factory(level=0),
       large_tank=FakeTank(TankLevel.EMPTY),
-      current_state=FillLowerTank,
+      current_state=FillLargeTank,
     )
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, FillWell)
 
 
-class TestSettleLowerTank(unittest.TestCase):
+class TestSettleLargeTank(unittest.TestCase):
   def test_if_large_tank_is_not_full_go_fill_it(self):
     context = context_factory(
       large_tank=FakeTank(TankLevel.MEDIUM),
-      current_state=SettleLowerTank,
+      current_state=SettleLargeTank,
     )
     next_state = context.current_state.check(context)
-    self.assertEqual(next_state, FillLowerTank)
+    self.assertEqual(next_state, FillLargeTank)
 
   def test_if_not_enough_time_elapsed_stay_there(self):
     context = context_factory(
       large_tank=FakeTank(TankLevel.FULL),
       settle_time=timedelta(hours=12),
-      current_state=SettleLowerTank,
+      current_state=SettleLargeTank,
       state_activated_at=datetime.now() - timedelta(hours=6),
     )
     next_state = context.current_state.check(context)
@@ -232,66 +232,66 @@ class TestSettleLowerTank(unittest.TestCase):
     context = context_factory(
       large_tank=FakeTank(TankLevel.FULL),
       settle_time=timedelta(hours=12),
-      current_state=SettleLowerTank,
+      current_state=SettleLargeTank,
       state_activated_at=datetime.now() - timedelta(hours=12),
     )
     next_state = context.current_state.check(context)
-    self.assertEqual(next_state, FillUpperTank)
+    self.assertEqual(next_state, FillSmallTank)
 
 
-class TestFillUpperTank(unittest.TestCase):
+class TestFillSmallTank(unittest.TestCase):
   def test_if_large_tank_is_empty_go_fill_it(self):
     context = context_factory(
       large_tank=FakeTank(TankLevel.EMPTY),
       small_tank=FakeTank(TankLevel.EMPTY),
-      current_state=FillUpperTank,
+      current_state=FillSmallTank,
     )
     next_state = context.current_state.check(context)
-    self.assertEqual(next_state, FillLowerTank)
+    self.assertEqual(next_state, FillLargeTank)
 
   def test_if_small_tank_is_full_go_idle(self):
     context = context_factory(
       large_tank=FakeTank(TankLevel.FULL),
       small_tank=FakeTank(TankLevel.FULL),
-      current_state=FillUpperTank,
+      current_state=FillSmallTank,
     )
     next_state = context.current_state.check(context)
-    self.assertEqual(next_state, UpperTankInUse)
+    self.assertEqual(next_state, SmallTankInUse)
 
   def test_if_small_tank_is_not_full_stay_there(self):
     context = context_factory(
       large_tank=FakeTank(TankLevel.FULL),
       small_tank=FakeTank(TankLevel.MEDIUM),
-      current_state=FillUpperTank,
+      current_state=FillSmallTank,
     )
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, context.current_state)
 
 
-class TestUpperTankInUse(unittest.TestCase):
+class TestSmallTankInUse(unittest.TestCase):
   def test_if_large_tank_is_empty_go_fill_it(self):
     context = context_factory(
       large_tank=FakeTank(TankLevel.EMPTY),
       small_tank=FakeTank(TankLevel.FULL),
-      current_state=UpperTankInUse,
+      current_state=SmallTankInUse,
     )
     next_state = context.current_state.check(context)
-    self.assertEqual(next_state, FillLowerTank)
+    self.assertEqual(next_state, FillLargeTank)
 
   def test_if_small_tank_is_empty_go_fill_it(self):
     context = context_factory(
       large_tank=FakeTank(TankLevel.FULL),
       small_tank=FakeTank(TankLevel.EMPTY),
-      current_state=UpperTankInUse,
+      current_state=SmallTankInUse,
     )
     next_state = context.current_state.check(context)
-    self.assertEqual(next_state, FillUpperTank)
+    self.assertEqual(next_state, FillSmallTank)
 
   def test_if_small_tank_is_not_empty_stay_there(self):
     context = context_factory(
       large_tank=FakeTank(TankLevel.FULL),
       small_tank=FakeTank(TankLevel.MEDIUM),
-      current_state=UpperTankInUse,
+      current_state=SmallTankInUse,
     )
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, context.current_state)
@@ -367,16 +367,16 @@ class TestContext(unittest.TestCase):
         state_activated_at=mock_now - timedelta(hours=6),
       )
       context.check()
-      self.assertEqual(context.current_state, FillLowerTank)
+      self.assertEqual(context.current_state, FillLargeTank)
       self.assertEqual(context.state_activated_at, mock_now)
 
   def test_check_updates_state_multiple_times(self):
-    # Example: FillUpperTank -> FillLowerTank -> FillWell in one go.
+    # Example: FillSmallTank -> FillLargeTank -> FillWell in one go.
     context = context_factory(
       well=well_factory(level=0),
       large_tank=FakeTank(TankLevel.EMPTY),
       small_tank=FakeTank(TankLevel.MEDIUM),
-      current_state=FillUpperTank,
+      current_state=FillSmallTank,
     )
     context.check()
     self.assertEqual(context.current_state, FillWell)
@@ -412,7 +412,7 @@ class TestContext(unittest.TestCase):
           last_update=mock_now,
         ),
         well_to_large_tank_pump=Pump(),
-        current_state=FillLowerTank,
+        current_state=FillLargeTank,
       )
       # This activates the well_to_large_tank_pump.
       context.action()
@@ -430,7 +430,7 @@ class TestContext(unittest.TestCase):
       small_tank_level=TankLevel.FULL,
       well_to_large_tank_pump_active=False,
       lower_to_small_tank_pump_active=True,
-      current_state=FillUpperTank,
+      current_state=FillSmallTank,
       state_activated_at=datetime.now() - timedelta(hours=6),
     )
     context = Context.from_settings_and_measures(settings, measures)
@@ -468,7 +468,7 @@ class TestContext(unittest.TestCase):
       context.lower_to_small_tank_pump._pump.pin.info.name,
       settings.lower_to_small_tank_pump_pin,
     )
-    self.assertEqual(context.current_state, FillUpperTank)
+    self.assertEqual(context.current_state, FillSmallTank)
     self.assertEqual(context.state_activated_at, measures.state_activated_at)
 
 
@@ -485,11 +485,11 @@ class TestMeasures(unittest.TestCase):
         well_to_large_tank_pump=Pump(),
         lower_to_small_tank_pump=Pump(),
         settle_time=timedelta(hours=12),
-        current_state=FillUpperTank,
+        current_state=FillSmallTank,
         state_activated_at=mock_now,
       )
       # This activates the lower_to_small_tank_pump,
-      # because FillUpperTank is the current state.
+      # because FillSmallTank is the current state.
       context.action()
       measures = context.measures()
       self.assertEqual(
@@ -501,7 +501,7 @@ class TestMeasures(unittest.TestCase):
           small_tank_level=TankLevel.FULL,
           well_to_large_tank_pump_active=False,
           lower_to_small_tank_pump_active=True,
-          current_state=FillUpperTank,
+          current_state=FillSmallTank,
           state_activated_at=mock_now,
         ),
       )
@@ -516,7 +516,7 @@ class TestMeasures(unittest.TestCase):
       small_tank_level=TankLevel.FULL,
       well_to_large_tank_pump_active=False,
       lower_to_small_tank_pump_active=True,
-      current_state=FillUpperTank,
+      current_state=FillSmallTank,
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
     # Copy happens by serialization and deserialization.
@@ -542,7 +542,7 @@ class TestHistory(unittest.TestCase):
       small_tank_level=TankLevel.FULL,
       well_to_large_tank_pump_active=False,
       lower_to_small_tank_pump_active=True,
-      current_state=FillUpperTank,
+      current_state=FillSmallTank,
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
     history = History()
@@ -559,7 +559,7 @@ class TestHistory(unittest.TestCase):
       small_tank_level=TankLevel.FULL,
       well_to_large_tank_pump_active=False,
       lower_to_small_tank_pump_active=True,
-      current_state=FillUpperTank,
+      current_state=FillSmallTank,
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
     history = History()
@@ -584,7 +584,7 @@ class TestHistory(unittest.TestCase):
       small_tank_level=TankLevel.FULL,
       well_to_large_tank_pump_active=False,
       lower_to_small_tank_pump_active=True,
-      current_state=FillUpperTank,
+      current_state=FillSmallTank,
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
     history = History()
@@ -608,7 +608,7 @@ class TestHistory(unittest.TestCase):
       small_tank_level=TankLevel.FULL,
       well_to_large_tank_pump_active=False,
       lower_to_small_tank_pump_active=True,
-      current_state=FillUpperTank,
+      current_state=FillSmallTank,
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
     history = History()
@@ -721,7 +721,7 @@ class TestController(unittest.TestCase):
       controller.run()
       time5 = mock_now
       measures5 = controller.context.measures()
-      self.assertEqual(measures5.current_state, FillLowerTank)
+      self.assertEqual(measures5.current_state, FillLargeTank)
       self.assertEqual(measures5.large_tank_level, TankLevel.EMPTY)
       self.assertEqual(measures5.well_level, 100)
       self.assertDictEqual(
@@ -783,8 +783,8 @@ class TestController(unittest.TestCase):
       )
       controller2.load()
       controller2.run()
-      # We should be in FillLowerTank state.
-      self.assertEqual(controller2.context.current_state, FillLowerTank)
+      # We should be in FillLargeTank state.
+      self.assertEqual(controller2.context.current_state, FillLargeTank)
       # The measures should be equal because both controllers would
       # only have to wait for the well to fill up.
       self.assertEqual(controller2.context.well.level, 100)
@@ -806,7 +806,7 @@ class TestController(unittest.TestCase):
       # First run will write the measures and history files.
       controller.run()
 
-      # After 5 hours, we change the state to FillLowerTank.
+      # After 5 hours, we change the state to FillLargeTank.
       mock_now += timedelta(hours=5)
       mock_datetime.now.return_value = mock_now
       controller.run()
@@ -839,8 +839,8 @@ class TestController(unittest.TestCase):
       )
       controller2.load()
       controller2.run()
-      # We should be in FillLowerTank state.
-      self.assertEqual(controller2.context.current_state, FillLowerTank)
+      # We should be in FillLargeTank state.
+      self.assertEqual(controller2.context.current_state, FillLargeTank)
       # The measures should be different because if controller did not stop,
       # the well would not be full anymore.
       self.assertEqual(controller2.context.well.level, 100)
