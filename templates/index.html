@@ -20,39 +20,45 @@
       <h1 class="text-center">Stato del Sistema</h1>
       <table class="table table-striped fw-bold">
         <tr>
-          <th class="text-end">Ultimo aggiornamento</th>
+          <th class="text-end col-5">Ultimo aggiornamento</th>
           {% if measures.no_heartbeat %}
-            <td class="text-danger">{{ measures.time }} - troppo tempo senza aggiornamenti - verificare funzionamento</td>
+            <td class="text-danger">{{ measures.time }} - troppo tempo senza aggiornamenti</td>
           {% else %}
             <td>{{ measures.time }}</td>
           {% endif %}
         </tr>
         <tr>
-          <th class="text-end">Stato Attuale</th>
+          <th class="text-end col-5">Stato Attuale</th>
           <td>{{ measures.current_state }}</td>
         </tr>
         <tr>
-          <th class="text-end">Stato Attivato alle</th>
+          <th class="text-end col-5">Stato Attivato alle</th>
           <td>{{ measures.state_activated_at }}</td>
         </tr>
+        {% if measures.settle_end_time %}
+          <tr>
+            <th class="text-end col-5">Fine Decantazione</th>
+            <td>{{ measures.settle_end_time }}</td>
+          </tr>
+        {% endif %}
         <tr>
-          <th class="text-end">Livello del Pozzo</th>
+          <th class="text-end col-5">Livello del Pozzo</th>
           <td>{{ measures.well_level }}</td>
         </tr>
         <tr>
-          <th class="text-end">Livello del Serbatoio Grande</th>
+          <th class="text-end col-5">Livello del Serbatoio Grande</th>
           <td class="{{ measures.large_tank_level_class }}">{{ measures.large_tank_level }}</td>
         </tr>
         <tr>
-          <th class="text-end">Livello del Serbatoio Piccolo</th>
+          <th class="text-end col-5">Livello del Serbatoio Piccolo</th>
           <td class="{{ measures.small_tank_level_class }}">{{ measures.small_tank_level }}</td>
         </tr>
         <tr>
-          <th class="text-end">Pompa Pozzo -> Serbatoio Grande</th>
+          <th class="text-end col-5">Pompa Pozzo -> Serbatoio Grande</th>
           <td>{{ measures.well_to_large_tank_pump }}</td>
         </tr>
         <tr>
-          <th class="text-end">Pompa Serbatoio Grande -> Serbatoio Piccolo</th>
+          <th class="text-end col-5">Pompa Serbatoio Grande -> Serbatoio Piccolo</th>
           <td>{{ measures.lower_to_small_tank_pump }}</td>
         </tr>
       </table>

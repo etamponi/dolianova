@@ -1,51 +1,59 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Flask, render_template
 
 import dolianova
-from dolianova import History, Measures, State, TankLevel
+from dolianova import History, Measures, Settings, State, TankLevel
 
 app = Flask(__name__)
 
 
-def load_measures():
-  # return Measures(
-  #   time=datetime.now() - timedelta(minutes=5),
-  #   well_level=50,
-  #   large_tank_level=TankLevel.FULL,
-  #   small_tank_level=TankLevel.EMPTY,
-  #   well_to_large_tank_pump_active=True,
-  #   lower_to_small_tank_pump_active=False,
-  #   current_state=dolianova.SmallTankInUse,
-  #   state_activated_at=datetime.now() - timedelta(minutes=50),
-  # )
+def load_fake_measures(return_none: bool = False) -> Measures | None:
+  if return_none:
+    return None
+  return Measures(
+    time=datetime.now() - timedelta(minutes=0),
+    well_level=50,
+    large_tank_level=TankLevel.FULL,
+    small_tank_level=TankLevel.EMPTY,
+    well_to_large_tank_pump_active=True,
+    lower_to_small_tank_pump_active=False,
+    current_state=dolianova.SettleLargeTank,
+    state_activated_at=datetime.now() - timedelta(minutes=50),
+  )
 
+
+def load_measures():
   if not os.path.exists("measures.json"):
     return None
   with open("measures.json") as f:
     data = f.read()
     return Measures.deserialize(data)
+  
+
+def load_fake_history(return_none: bool = False) -> History | None:
+  if return_none:
+    return None
+  return History(
+    {
+      datetime.now() - timedelta(minutes=60 - 3 * i): Measures(
+        time=datetime.now() - timedelta(minutes=60 - 3 * i),
+        well_level=int(100 * (i+1) / 20),
+        large_tank_level=TankLevel.EMPTY if i < 10 else TankLevel.FULL,
+        small_tank_level=TankLevel.EMPTY if i > 10 else TankLevel.MEDIUM,
+        well_to_large_tank_pump_active=False,
+        lower_to_small_tank_pump_active=False,
+        current_state=dolianova.FillWell,
+        state_activated_at=datetime.now() - timedelta(minutes=60),
+      )
+      for i in range(20)
+    }
+  )
 
 
 def load_history():
-  # return History(
-  #   {
-  #     datetime.now() - timedelta(minutes=60 - 3 * i): Measures(
-  #       time=datetime.now() - timedelta(minutes=60 - 3 * i),
-  #       well_level=int(100 * (i+1) / 20),
-  #       large_tank_level=TankLevel.EMPTY if i < 10 else TankLevel.FULL,
-  #       small_tank_level=TankLevel.EMPTY if i > 10 else TankLevel.MEDIUM,
-  #       well_to_large_tank_pump_active=False,
-  #       lower_to_small_tank_pump_active=False,
-  #       current_state=dolianova.FillWell,
-  #       state_activated_at=datetime.now() - timedelta(minutes=60),
-  #     )
-  #     for i in range(20)
-  #   }
-  # )
-
   if not os.path.exists("history.json"):
     return None
   with open("history.json") as f:
@@ -54,8 +62,27 @@ def load_history():
 
 
 def translate_time(time: datetime) -> str:
-  minutes_from_now = int((datetime.now() - time).total_seconds() / 60)
-  return f"{time.strftime('%Y-%m-%d %H:%M')} ({minutes_from_now} minuti fa)"
+  minutes_from_now = int(round((datetime.now() - time).total_seconds() / 60))
+  hours = int(abs(minutes_from_now) / 60)
+  minutes = abs(minutes_from_now) % 60
+  if abs(minutes_from_now) < 1:
+    return f"{time.strftime('%Y-%m-%d %H:%M')} (adesso)"
+  hours_str = ""
+  if hours == 1:
+    hours_str = f"{hours} ora e "
+  elif hours > 1:
+    hours_str = f"{hours} ore e "
+  minutes_str = ""
+  if minutes == 1:
+    minutes_str = f"{minutes} minuto"
+  elif minutes > 1:
+    minutes_str = f"{minutes} minuti"
+  if minutes_from_now == 0:
+    return f"{time.strftime('%Y-%m-%d %H:%M')} (adesso)"
+  elif minutes_from_now < 0:
+    return f"{time.strftime('%Y-%m-%d %H:%M')} (tra {hours_str}{minutes_str})"
+  else:
+    return f"{time.strftime('%Y-%m-%d %H:%M')} ({hours_str}{minutes_str} fa)"
 
 
 def translate_level(level: TankLevel) -> str:
@@ -96,8 +123,19 @@ def translate_state(state: type[State], state_activated_at: datetime) -> str:
   return "sconosciuto"
 
 
+def get_settle_end_time(measures: Measures) -> datetime | None:
+  with open("settings.json") as f:
+    data = f.read()
+    settings = Settings.deserialize(data)
+    
+  if measures.current_state != dolianova.SettleLargeTank:
+    return None
+  return measures.state_activated_at + settings.settle_time
+
+
 def translate_measures(measures: Measures) -> dict[str, object]:
   no_heartbeat = datetime.now() - measures.time > dolianova.timedelta(minutes=7)
+  settle_end_time = get_settle_end_time(measures)
   return {
     "time": translate_time(measures.time),
     "no_heartbeat": no_heartbeat,
@@ -114,6 +152,7 @@ def translate_measures(measures: Measures) -> dict[str, object]:
       measures.current_state, measures.state_activated_at
     ).upper(),
     "state_activated_at": translate_time(measures.state_activated_at),
+    "settle_end_time": translate_time(settle_end_time) if settle_end_time is not None else None,
   }
 
 
@@ -157,6 +196,7 @@ def index():
   history = load_history()
   if measures is None or history is None:
     return "Nessun dato disponibile"
+  history.add(measures, no_duplicates=False)
   translated_measures = translate_measures(measures)
   return render_template(
     "index.html",

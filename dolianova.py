@@ -453,10 +453,10 @@ class History:
     except StopIteration:
       return None
 
-  def add(self, measures: Measures) -> None:
+  def add(self, measures: Measures, no_duplicates: bool = True) -> None:
     # If new measures are the same as the last one, do nothing.
     # Except for the time, of course.
-    if len(self.measures) and self.last() == measures:
+    if no_duplicates and len(self.measures) and self.last() == measures:
       pass
     else:
       self.measures[measures.time] = measures.copy()
@@ -529,7 +529,7 @@ class Controller:
         f.write(self.history.serialize())
       return measures
     # Save measures if it's time to write a heartbeat.
-    elif self.should_write_heartbeat():
+    if self.should_write_heartbeat():
       with open(self.measures_file, "w") as f:
         f.write(measures.serialize())
       return measures
