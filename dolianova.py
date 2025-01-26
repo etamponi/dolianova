@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import os
 import pathlib as pl
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
-from time import sleep
 from typing import TypeGuard, override
 
 import fire  # type: ignore
@@ -446,10 +447,16 @@ class Settings:
 class History:
   measures: dict[datetime, Measures] = field(default_factory=dict)
 
+  def last(self) -> Measures | None:
+    try:
+      return next(reversed(self.measures.values()))
+    except StopIteration:
+      return None
+
   def add(self, measures: Measures) -> None:
     # If new measures are the same as the last one, do nothing.
     # Except for the time, of course.
-    if len(self.measures) and next(reversed(self.measures.values())) == measures:
+    if len(self.measures) and self.last() == measures:
       pass
     else:
       self.measures[measures.time] = measures.copy()
@@ -485,7 +492,7 @@ class Controller:
       raise FileNotFoundError(f"Settings file {self.settings_file} not found.")
     with open(self.settings_file) as f:
       settings = Settings.deserialize(f.read())
-    
+
     # Load measures and history if they exist.
     if pl.Path(self.measures_file).exists():
       with open(self.measures_file) as f:
@@ -500,20 +507,34 @@ class Controller:
 
     self.context = Context.from_settings_and_measures(settings, measures)
 
-  def run(self) -> None:
+  def should_write_heartbeat(self) -> bool:
+    if not pl.Path(self.measures_file).exists():
+      return True
+    last_modified = datetime.fromtimestamp(os.path.getmtime(self.measures_file))
+    current_time = datetime.now()
+    return current_time - last_modified > timedelta(minutes=1)
+
+  def run(self) -> Measures | None:
     history_length = len(self.history.measures)
     self.context.check()
     self.context.action()
     measures = self.context.measures()
     self.history.add(measures)
-    # Save measures and history if they have changed.
-    # TODO: also every minute.
     # TODO: make atomic.
+    # Save measures and history if they have changed.
     if len(self.history.measures) > history_length:
       with open(self.measures_file, "w") as f:
         f.write(measures.serialize())
       with open(self.history_file, "w") as f:
         f.write(self.history.serialize())
+      return measures
+    # Save measures if it's time to write a heartbeat.
+    elif self.should_write_heartbeat():
+      with open(self.measures_file, "w") as f:
+        f.write(measures.serialize())
+      return measures
+
+    return None
 
 
 def main(
@@ -522,7 +543,12 @@ def main(
   measures_file: str = "measures.json",
   history_file: str = "history.json",
 ) -> None:
-  pass
+  controller = Controller(settings_file, measures_file, history_file)
+  controller.load()
+  while True:
+    if (measures := controller.run()) is not None:
+      print(measures.serialize())
+    time.sleep(1)
 
 
 if __name__ == "__main__":

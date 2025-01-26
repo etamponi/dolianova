@@ -815,7 +815,7 @@ class TestController(unittest.TestCase):
       mock_now += timedelta(minutes=10)
       mock_datetime.now.return_value = mock_now
 
-      # Copy the measures and history files to a new location to simulate a restart.
+      # Move the measures and history files to a new location to simulate a restart.
       pl.Path("/tmp/dolianova_tests/measures.json").replace(
         "/tmp/dolianova_tests/measures2.json"
       )
@@ -824,11 +824,13 @@ class TestController(unittest.TestCase):
       )
 
       # Let's get the measures from the current controller (for comparison).
+      # This also recreates the measures.json and history.json files.
       controller.run()
       measures = controller.context.measures()
 
       # We need to release the GPIO pins to create a new controller.
       Device.pin_factory.reset()  # type: ignore
+      # From now on, we can't call controller methods because the pins are reset.
 
       controller2 = Controller(
         settings_file="settings.json",
