@@ -92,20 +92,20 @@ def well_factory(
 
 def context_factory(
   well: Well | None = None,
-  lower_tank: Tank | None = None,
-  upper_tank: Tank | None = None,
-  well_to_lower_tank_pump: Pump | None = None,
-  lower_to_upper_tank_pump: Pump | None = None,
+  large_tank: Tank | None = None,
+  small_tank: Tank | None = None,
+  well_to_large_tank_pump: Pump | None = None,
+  lower_to_small_tank_pump: Pump | None = None,
   settle_time: timedelta | None = None,
   current_state: type[State] | None = None,
   state_activated_at: datetime | None = None,
 ) -> Context:
   context = Context(
     well=well or well_factory(),
-    lower_tank=lower_tank or FakeTank(TankLevel.MEDIUM),
-    upper_tank=upper_tank or FakeTank(TankLevel.MEDIUM),
-    well_to_lower_tank_pump=well_to_lower_tank_pump or Pump(),
-    lower_to_upper_tank_pump=lower_to_upper_tank_pump or Pump(),
+    large_tank=large_tank or FakeTank(TankLevel.MEDIUM),
+    small_tank=small_tank or FakeTank(TankLevel.MEDIUM),
+    well_to_large_tank_pump=well_to_large_tank_pump or Pump(),
+    lower_to_small_tank_pump=lower_to_small_tank_pump or Pump(),
     settle_time=settle_time or timedelta(hours=12),
     current_state=current_state or FillWell,
     state_activated_at=state_activated_at or datetime.now(),
@@ -116,20 +116,20 @@ def context_factory(
 def measures_factory(
   time: datetime = datetime.now(),
   well_level: int = 50,
-  lower_tank_level: TankLevel = TankLevel.MEDIUM,
-  upper_tank_level: TankLevel = TankLevel.MEDIUM,
-  well_to_lower_tank_pump_active: bool = False,
-  lower_to_upper_tank_pump_active: bool = False,
+  large_tank_level: TankLevel = TankLevel.MEDIUM,
+  small_tank_level: TankLevel = TankLevel.MEDIUM,
+  well_to_large_tank_pump_active: bool = False,
+  lower_to_small_tank_pump_active: bool = False,
   current_state: type[State] = FillWell,
   state_activated_at: datetime = datetime.now(),
 ) -> Measures:
   return Measures(
     time=time,
     well_level=well_level,
-    lower_tank_level=lower_tank_level,
-    upper_tank_level=upper_tank_level,
-    well_to_lower_tank_pump_active=well_to_lower_tank_pump_active,
-    lower_to_upper_tank_pump_active=lower_to_upper_tank_pump_active,
+    large_tank_level=large_tank_level,
+    small_tank_level=small_tank_level,
+    well_to_large_tank_pump_active=well_to_large_tank_pump_active,
+    lower_to_small_tank_pump_active=lower_to_small_tank_pump_active,
     current_state=current_state,
     state_activated_at=state_activated_at,
   )
@@ -139,28 +139,28 @@ def settings_factory(
   fill_period: timedelta = timedelta(hours=1),
   empty_period: timedelta = timedelta(hours=1),
   settle_time: timedelta = timedelta(hours=12),
-  lower_tank_low_floater_pin: str = "GPIO2",
-  lower_tank_high_floater_pin: str = "GPIO3",
-  upper_tank_low_floater_pin: str = "GPIO4",
-  upper_tank_high_floater_pin: str = "GPIO5",
-  well_to_lower_tank_pump_pin: str = "GPIO6",
-  lower_to_upper_tank_pump_pin: str = "GPIO7",
+  large_tank_low_floater_pin: str = "GPIO2",
+  large_tank_high_floater_pin: str = "GPIO3",
+  small_tank_low_floater_pin: str = "GPIO4",
+  small_tank_high_floater_pin: str = "GPIO5",
+  well_to_large_tank_pump_pin: str = "GPIO6",
+  lower_to_small_tank_pump_pin: str = "GPIO7",
 ) -> Settings:
   return Settings(
     fill_period=fill_period,
     empty_period=empty_period,
     settle_time=settle_time,
-    lower_tank_low_floater_pin=lower_tank_low_floater_pin,
-    lower_tank_high_floater_pin=lower_tank_high_floater_pin,
-    upper_tank_low_floater_pin=upper_tank_low_floater_pin,
-    upper_tank_high_floater_pin=upper_tank_high_floater_pin,
-    well_to_lower_tank_pump_pin=well_to_lower_tank_pump_pin,
-    lower_to_upper_tank_pump_pin=lower_to_upper_tank_pump_pin,
+    large_tank_low_floater_pin=large_tank_low_floater_pin,
+    large_tank_high_floater_pin=large_tank_high_floater_pin,
+    small_tank_low_floater_pin=small_tank_low_floater_pin,
+    small_tank_high_floater_pin=small_tank_high_floater_pin,
+    well_to_large_tank_pump_pin=well_to_large_tank_pump_pin,
+    lower_to_small_tank_pump_pin=lower_to_small_tank_pump_pin,
   )
 
 
 class TestFillWell(unittest.TestCase):
-  def test_when_well_is_filled_go_fill_lower_tank(self):
+  def test_when_well_is_filled_go_fill_large_tank(self):
     context = context_factory(
       well=well_factory(level=100),
       current_state=FillWell,
@@ -178,31 +178,31 @@ class TestFillWell(unittest.TestCase):
 
 
 class TestFillLowerTank(unittest.TestCase):
-  def test_when_lower_tank_is_full_go_to_settle_lower_tank(self):
+  def test_when_large_tank_is_full_go_to_settle_large_tank(self):
     context = context_factory(
-      lower_tank=FakeTank(TankLevel.FULL),
+      large_tank=FakeTank(TankLevel.FULL),
       current_state=FillLowerTank,
     )
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, SettleLowerTank)
 
-  def test_if_lower_tank_is_not_full_stay_there(self):
-    lower_tank = FakeTank(TankLevel.MEDIUM)
+  def test_if_large_tank_is_not_full_stay_there(self):
+    large_tank = FakeTank(TankLevel.MEDIUM)
     context = context_factory(
-      lower_tank=lower_tank,
+      large_tank=large_tank,
       current_state=FillLowerTank,
     )
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, context.current_state)
 
-    lower_tank.set_level(TankLevel.EMPTY)
+    large_tank.set_level(TankLevel.EMPTY)
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, context.current_state)
 
   def test_if_well_is_empty_go_fill_well(self):
     context = context_factory(
       well=well_factory(level=0),
-      lower_tank=FakeTank(TankLevel.EMPTY),
+      large_tank=FakeTank(TankLevel.EMPTY),
       current_state=FillLowerTank,
     )
     next_state = context.current_state.check(context)
@@ -210,9 +210,9 @@ class TestFillLowerTank(unittest.TestCase):
 
 
 class TestSettleLowerTank(unittest.TestCase):
-  def test_if_lower_tank_is_not_full_go_fill_it(self):
+  def test_if_large_tank_is_not_full_go_fill_it(self):
     context = context_factory(
-      lower_tank=FakeTank(TankLevel.MEDIUM),
+      large_tank=FakeTank(TankLevel.MEDIUM),
       current_state=SettleLowerTank,
     )
     next_state = context.current_state.check(context)
@@ -220,7 +220,7 @@ class TestSettleLowerTank(unittest.TestCase):
 
   def test_if_not_enough_time_elapsed_stay_there(self):
     context = context_factory(
-      lower_tank=FakeTank(TankLevel.FULL),
+      large_tank=FakeTank(TankLevel.FULL),
       settle_time=timedelta(hours=12),
       current_state=SettleLowerTank,
       state_activated_at=datetime.now() - timedelta(hours=6),
@@ -228,9 +228,9 @@ class TestSettleLowerTank(unittest.TestCase):
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, context.current_state)
 
-  def test_if_enough_time_elapsed_go_fill_upper_tank(self):
+  def test_if_enough_time_elapsed_go_fill_small_tank(self):
     context = context_factory(
-      lower_tank=FakeTank(TankLevel.FULL),
+      large_tank=FakeTank(TankLevel.FULL),
       settle_time=timedelta(hours=12),
       current_state=SettleLowerTank,
       state_activated_at=datetime.now() - timedelta(hours=12),
@@ -240,28 +240,28 @@ class TestSettleLowerTank(unittest.TestCase):
 
 
 class TestFillUpperTank(unittest.TestCase):
-  def test_if_lower_tank_is_empty_go_fill_it(self):
+  def test_if_large_tank_is_empty_go_fill_it(self):
     context = context_factory(
-      lower_tank=FakeTank(TankLevel.EMPTY),
-      upper_tank=FakeTank(TankLevel.EMPTY),
+      large_tank=FakeTank(TankLevel.EMPTY),
+      small_tank=FakeTank(TankLevel.EMPTY),
       current_state=FillUpperTank,
     )
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, FillLowerTank)
 
-  def test_if_upper_tank_is_full_go_idle(self):
+  def test_if_small_tank_is_full_go_idle(self):
     context = context_factory(
-      lower_tank=FakeTank(TankLevel.FULL),
-      upper_tank=FakeTank(TankLevel.FULL),
+      large_tank=FakeTank(TankLevel.FULL),
+      small_tank=FakeTank(TankLevel.FULL),
       current_state=FillUpperTank,
     )
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, UpperTankInUse)
 
-  def test_if_upper_tank_is_not_full_stay_there(self):
+  def test_if_small_tank_is_not_full_stay_there(self):
     context = context_factory(
-      lower_tank=FakeTank(TankLevel.FULL),
-      upper_tank=FakeTank(TankLevel.MEDIUM),
+      large_tank=FakeTank(TankLevel.FULL),
+      small_tank=FakeTank(TankLevel.MEDIUM),
       current_state=FillUpperTank,
     )
     next_state = context.current_state.check(context)
@@ -269,28 +269,28 @@ class TestFillUpperTank(unittest.TestCase):
 
 
 class TestUpperTankInUse(unittest.TestCase):
-  def test_if_lower_tank_is_empty_go_fill_it(self):
+  def test_if_large_tank_is_empty_go_fill_it(self):
     context = context_factory(
-      lower_tank=FakeTank(TankLevel.EMPTY),
-      upper_tank=FakeTank(TankLevel.FULL),
+      large_tank=FakeTank(TankLevel.EMPTY),
+      small_tank=FakeTank(TankLevel.FULL),
       current_state=UpperTankInUse,
     )
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, FillLowerTank)
 
-  def test_if_upper_tank_is_empty_go_fill_it(self):
+  def test_if_small_tank_is_empty_go_fill_it(self):
     context = context_factory(
-      lower_tank=FakeTank(TankLevel.FULL),
-      upper_tank=FakeTank(TankLevel.EMPTY),
+      large_tank=FakeTank(TankLevel.FULL),
+      small_tank=FakeTank(TankLevel.EMPTY),
       current_state=UpperTankInUse,
     )
     next_state = context.current_state.check(context)
     self.assertEqual(next_state, FillUpperTank)
 
-  def test_if_upper_tank_is_not_empty_stay_there(self):
+  def test_if_small_tank_is_not_empty_stay_there(self):
     context = context_factory(
-      lower_tank=FakeTank(TankLevel.FULL),
-      upper_tank=FakeTank(TankLevel.MEDIUM),
+      large_tank=FakeTank(TankLevel.FULL),
+      small_tank=FakeTank(TankLevel.MEDIUM),
       current_state=UpperTankInUse,
     )
     next_state = context.current_state.check(context)
@@ -374,8 +374,8 @@ class TestContext(unittest.TestCase):
     # Example: FillUpperTank -> FillLowerTank -> FillWell in one go.
     context = context_factory(
       well=well_factory(level=0),
-      lower_tank=FakeTank(TankLevel.EMPTY),
-      upper_tank=FakeTank(TankLevel.MEDIUM),
+      large_tank=FakeTank(TankLevel.EMPTY),
+      small_tank=FakeTank(TankLevel.MEDIUM),
       current_state=FillUpperTank,
     )
     context.check()
@@ -411,10 +411,10 @@ class TestContext(unittest.TestCase):
           empty_period=timedelta(hours=1),
           last_update=mock_now,
         ),
-        well_to_lower_tank_pump=Pump(),
+        well_to_large_tank_pump=Pump(),
         current_state=FillLowerTank,
       )
-      # This activates the well_to_lower_tank_pump.
+      # This activates the well_to_large_tank_pump.
       context.action()
       mock_now += timedelta(minutes=30)
       mock_datetime.now.return_value = mock_now
@@ -426,10 +426,10 @@ class TestContext(unittest.TestCase):
     measures = measures_factory(
       time=datetime.now() - timedelta(minutes=30),
       well_level=25,
-      lower_tank_level=TankLevel.MEDIUM,
-      upper_tank_level=TankLevel.FULL,
-      well_to_lower_tank_pump_active=False,
-      lower_to_upper_tank_pump_active=True,
+      large_tank_level=TankLevel.MEDIUM,
+      small_tank_level=TankLevel.FULL,
+      well_to_large_tank_pump_active=False,
+      lower_to_small_tank_pump_active=True,
       current_state=FillUpperTank,
       state_activated_at=datetime.now() - timedelta(hours=6),
     )
@@ -440,33 +440,33 @@ class TestContext(unittest.TestCase):
     self.assertEqual(context.well.fill_period, settings.fill_period)
     self.assertEqual(context.well.empty_period, settings.empty_period)
     self.assertEqual(context.settle_time, settings.settle_time)
-    self.assertIsInstance(context.lower_tank, GPIOTank)
+    self.assertIsInstance(context.large_tank, GPIOTank)
     self.assertEqual(
-      context.lower_tank._low_floater.pin.info.name,
-      settings.lower_tank_low_floater_pin,
+      context.large_tank._low_floater.pin.info.name,
+      settings.large_tank_low_floater_pin,
     )
     self.assertEqual(
-      context.lower_tank._high_floater.pin.info.name,
-      settings.lower_tank_high_floater_pin,
+      context.large_tank._high_floater.pin.info.name,
+      settings.large_tank_high_floater_pin,
     )
-    self.assertIsInstance(context.upper_tank, GPIOTank)
+    self.assertIsInstance(context.small_tank, GPIOTank)
     self.assertEqual(
-      context.upper_tank._low_floater.pin.info.name,
-      settings.upper_tank_low_floater_pin,
+      context.small_tank._low_floater.pin.info.name,
+      settings.small_tank_low_floater_pin,
     )
     self.assertEqual(
-      context.upper_tank._high_floater.pin.info.name,
-      settings.upper_tank_high_floater_pin,
+      context.small_tank._high_floater.pin.info.name,
+      settings.small_tank_high_floater_pin,
     )
-    self.assertIsInstance(context.well_to_lower_tank_pump, GPIOPump)
+    self.assertIsInstance(context.well_to_large_tank_pump, GPIOPump)
     self.assertEqual(
-      context.well_to_lower_tank_pump._pump.pin.info.name,
-      settings.well_to_lower_tank_pump_pin,
+      context.well_to_large_tank_pump._pump.pin.info.name,
+      settings.well_to_large_tank_pump_pin,
     )
-    self.assertIsInstance(context.lower_to_upper_tank_pump, GPIOPump)
+    self.assertIsInstance(context.lower_to_small_tank_pump, GPIOPump)
     self.assertEqual(
-      context.lower_to_upper_tank_pump._pump.pin.info.name,
-      settings.lower_to_upper_tank_pump_pin,
+      context.lower_to_small_tank_pump._pump.pin.info.name,
+      settings.lower_to_small_tank_pump_pin,
     )
     self.assertEqual(context.current_state, FillUpperTank)
     self.assertEqual(context.state_activated_at, measures.state_activated_at)
@@ -480,15 +480,15 @@ class TestMeasures(unittest.TestCase):
       mock_datetime.now.return_value = mock_now
       context = Context(
         well=well_factory(level=87),
-        lower_tank=FakeTank(TankLevel.MEDIUM),
-        upper_tank=FakeTank(TankLevel.FULL),
-        well_to_lower_tank_pump=Pump(),
-        lower_to_upper_tank_pump=Pump(),
+        large_tank=FakeTank(TankLevel.MEDIUM),
+        small_tank=FakeTank(TankLevel.FULL),
+        well_to_large_tank_pump=Pump(),
+        lower_to_small_tank_pump=Pump(),
         settle_time=timedelta(hours=12),
         current_state=FillUpperTank,
         state_activated_at=mock_now,
       )
-      # This activates the lower_to_upper_tank_pump,
+      # This activates the lower_to_small_tank_pump,
       # because FillUpperTank is the current state.
       context.action()
       measures = context.measures()
@@ -497,10 +497,10 @@ class TestMeasures(unittest.TestCase):
         measures_factory(
           time=mock_now,
           well_level=87,
-          lower_tank_level=TankLevel.MEDIUM,
-          upper_tank_level=TankLevel.FULL,
-          well_to_lower_tank_pump_active=False,
-          lower_to_upper_tank_pump_active=True,
+          large_tank_level=TankLevel.MEDIUM,
+          small_tank_level=TankLevel.FULL,
+          well_to_large_tank_pump_active=False,
+          lower_to_small_tank_pump_active=True,
           current_state=FillUpperTank,
           state_activated_at=mock_now,
         ),
@@ -512,10 +512,10 @@ class TestMeasures(unittest.TestCase):
     measures = measures_factory(
       time=datetime(2024, 1, 1, 12, 0, 0),
       well_level=87,
-      lower_tank_level=TankLevel.MEDIUM,
-      upper_tank_level=TankLevel.FULL,
-      well_to_lower_tank_pump_active=False,
-      lower_to_upper_tank_pump_active=True,
+      large_tank_level=TankLevel.MEDIUM,
+      small_tank_level=TankLevel.FULL,
+      well_to_large_tank_pump_active=False,
+      lower_to_small_tank_pump_active=True,
       current_state=FillUpperTank,
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
@@ -538,10 +538,10 @@ class TestHistory(unittest.TestCase):
     measures = measures_factory(
       time=datetime(2024, 1, 1, 12, 0, 0),
       well_level=87,
-      lower_tank_level=TankLevel.MEDIUM,
-      upper_tank_level=TankLevel.FULL,
-      well_to_lower_tank_pump_active=False,
-      lower_to_upper_tank_pump_active=True,
+      large_tank_level=TankLevel.MEDIUM,
+      small_tank_level=TankLevel.FULL,
+      well_to_large_tank_pump_active=False,
+      lower_to_small_tank_pump_active=True,
       current_state=FillUpperTank,
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
@@ -555,10 +555,10 @@ class TestHistory(unittest.TestCase):
     measures = measures_factory(
       time=datetime(2024, 1, 1, 12, 0, 0),
       well_level=87,
-      lower_tank_level=TankLevel.MEDIUM,
-      upper_tank_level=TankLevel.FULL,
-      well_to_lower_tank_pump_active=False,
-      lower_to_upper_tank_pump_active=True,
+      large_tank_level=TankLevel.MEDIUM,
+      small_tank_level=TankLevel.FULL,
+      well_to_large_tank_pump_active=False,
+      lower_to_small_tank_pump_active=True,
       current_state=FillUpperTank,
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
@@ -580,10 +580,10 @@ class TestHistory(unittest.TestCase):
     measures = measures_factory(
       time=datetime(2024, 1, 1, 12, 0, 0),
       well_level=87,
-      lower_tank_level=TankLevel.MEDIUM,
-      upper_tank_level=TankLevel.FULL,
-      well_to_lower_tank_pump_active=False,
-      lower_to_upper_tank_pump_active=True,
+      large_tank_level=TankLevel.MEDIUM,
+      small_tank_level=TankLevel.FULL,
+      well_to_large_tank_pump_active=False,
+      lower_to_small_tank_pump_active=True,
       current_state=FillUpperTank,
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
@@ -604,10 +604,10 @@ class TestHistory(unittest.TestCase):
     measures = measures_factory(
       time=datetime(2024, 1, 1, 12, 0, 0),
       well_level=87,
-      lower_tank_level=TankLevel.MEDIUM,
-      upper_tank_level=TankLevel.FULL,
-      well_to_lower_tank_pump_active=False,
-      lower_to_upper_tank_pump_active=True,
+      large_tank_level=TankLevel.MEDIUM,
+      small_tank_level=TankLevel.FULL,
+      well_to_large_tank_pump_active=False,
+      lower_to_small_tank_pump_active=True,
       current_state=FillUpperTank,
       state_activated_at=datetime(2024, 1, 1, 12, 0, 0),
     )
@@ -722,7 +722,7 @@ class TestController(unittest.TestCase):
       time5 = mock_now
       measures5 = controller.context.measures()
       self.assertEqual(measures5.current_state, FillLowerTank)
-      self.assertEqual(measures5.lower_tank_level, TankLevel.EMPTY)
+      self.assertEqual(measures5.large_tank_level, TankLevel.EMPTY)
       self.assertEqual(measures5.well_level, 100)
       self.assertDictEqual(
         controller.history.measures,

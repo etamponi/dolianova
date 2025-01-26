@@ -155,16 +155,16 @@ class GPIOPump(Pump):
 @dataclass
 class Context:
   well: Well
-  lower_tank: Tank
-  upper_tank: Tank
-  well_to_lower_tank_pump: Pump
-  lower_to_upper_tank_pump: Pump
+  large_tank: Tank
+  small_tank: Tank
+  well_to_large_tank_pump: Pump
+  lower_to_small_tank_pump: Pump
   settle_time: timedelta
   current_state: type[State]
   state_activated_at: datetime
 
   def __post_init__(self) -> None:
-    self.well_to_lower_tank_pump.add_listener(self.well)
+    self.well_to_large_tank_pump.add_listener(self.well)
 
   def check(self):
     new_state = self.current_state.check(self)
@@ -184,10 +184,10 @@ class Context:
     return Measures(
       time=datetime.now(),
       well_level=self.well.level,
-      lower_tank_level=self.lower_tank.level,
-      upper_tank_level=self.upper_tank.level,
-      well_to_lower_tank_pump_active=self.well_to_lower_tank_pump.active,
-      lower_to_upper_tank_pump_active=self.lower_to_upper_tank_pump.active,
+      large_tank_level=self.large_tank.level,
+      small_tank_level=self.small_tank.level,
+      well_to_large_tank_pump_active=self.well_to_large_tank_pump.active,
+      lower_to_small_tank_pump_active=self.lower_to_small_tank_pump.active,
       current_state=self.current_state,
       state_activated_at=self.state_activated_at,
     )
@@ -200,22 +200,22 @@ class Context:
       level=measures.well_level,
       last_update=measures.time,
     )
-    lower_tank = GPIOTank(
-      low_floater_pin=settings.lower_tank_low_floater_pin,
-      high_floater_pin=settings.lower_tank_high_floater_pin,
+    large_tank = GPIOTank(
+      low_floater_pin=settings.large_tank_low_floater_pin,
+      high_floater_pin=settings.large_tank_high_floater_pin,
     )
-    upper_tank = GPIOTank(
-      low_floater_pin=settings.upper_tank_low_floater_pin,
-      high_floater_pin=settings.upper_tank_high_floater_pin,
+    small_tank = GPIOTank(
+      low_floater_pin=settings.small_tank_low_floater_pin,
+      high_floater_pin=settings.small_tank_high_floater_pin,
     )
-    well_to_lower_tank_pump = GPIOPump(settings.well_to_lower_tank_pump_pin)
-    lower_to_upper_tank_pump = GPIOPump(settings.lower_to_upper_tank_pump_pin)
+    well_to_large_tank_pump = GPIOPump(settings.well_to_large_tank_pump_pin)
+    lower_to_small_tank_pump = GPIOPump(settings.lower_to_small_tank_pump_pin)
     return Context(
       well=well,
-      lower_tank=lower_tank,
-      upper_tank=upper_tank,
-      well_to_lower_tank_pump=well_to_lower_tank_pump,
-      lower_to_upper_tank_pump=lower_to_upper_tank_pump,
+      large_tank=large_tank,
+      small_tank=small_tank,
+      well_to_large_tank_pump=well_to_large_tank_pump,
+      lower_to_small_tank_pump=lower_to_small_tank_pump,
       settle_time=settings.settle_time,
       current_state=measures.current_state,
       state_activated_at=measures.state_activated_at,
@@ -245,15 +245,15 @@ class FillWell(State):
   @override
   @staticmethod
   def action(context: Context) -> None:
-    context.well_to_lower_tank_pump.deactivate()
-    context.lower_to_upper_tank_pump.deactivate()
+    context.well_to_large_tank_pump.deactivate()
+    context.lower_to_small_tank_pump.deactivate()
 
 
 class FillLowerTank(State):
   @override
   @staticmethod
   def check(context: Context) -> type[State]:
-    if context.lower_tank.level == TankLevel.FULL:
+    if context.large_tank.level == TankLevel.FULL:
       return SettleLowerTank
     if context.well.level == 0:
       return FillWell
@@ -262,15 +262,15 @@ class FillLowerTank(State):
   @override
   @staticmethod
   def action(context: Context) -> None:
-    context.well_to_lower_tank_pump.activate()
-    context.lower_to_upper_tank_pump.deactivate()
+    context.well_to_large_tank_pump.activate()
+    context.lower_to_small_tank_pump.deactivate()
 
 
 class SettleLowerTank(State):
   @override
   @staticmethod
   def check(context: Context) -> type[State]:
-    if context.lower_tank.level != TankLevel.FULL:
+    if context.large_tank.level != TankLevel.FULL:
       return FillLowerTank
     if context.same_state_since > context.settle_time:
       return FillUpperTank
@@ -279,52 +279,52 @@ class SettleLowerTank(State):
   @override
   @staticmethod
   def action(context: Context) -> None:
-    context.well_to_lower_tank_pump.deactivate()
-    context.lower_to_upper_tank_pump.deactivate()
+    context.well_to_large_tank_pump.deactivate()
+    context.lower_to_small_tank_pump.deactivate()
 
 
 class FillUpperTank(State):
   @override
   @staticmethod
   def check(context: Context) -> type[State]:
-    if context.lower_tank.level == TankLevel.EMPTY:
+    if context.large_tank.level == TankLevel.EMPTY:
       return FillLowerTank
-    if context.upper_tank.level == TankLevel.FULL:
+    if context.small_tank.level == TankLevel.FULL:
       return UpperTankInUse
     return FillUpperTank
 
   @override
   @staticmethod
   def action(context: Context) -> None:
-    context.well_to_lower_tank_pump.deactivate()
-    context.lower_to_upper_tank_pump.activate()
+    context.well_to_large_tank_pump.deactivate()
+    context.lower_to_small_tank_pump.activate()
 
 
 class UpperTankInUse(State):
   @override
   @staticmethod
   def check(context: Context) -> type[State]:
-    if context.lower_tank.level == TankLevel.EMPTY:
+    if context.large_tank.level == TankLevel.EMPTY:
       return FillLowerTank
-    if context.upper_tank.level == TankLevel.EMPTY:
+    if context.small_tank.level == TankLevel.EMPTY:
       return FillUpperTank
     return UpperTankInUse
 
   @override
   @staticmethod
   def action(context: Context) -> None:
-    context.well_to_lower_tank_pump.deactivate()
-    context.lower_to_upper_tank_pump.deactivate()
+    context.well_to_large_tank_pump.deactivate()
+    context.lower_to_small_tank_pump.deactivate()
 
 
 @dataclass
 class Measures:
   time: datetime = field(compare=False)
   well_level: int
-  lower_tank_level: TankLevel
-  upper_tank_level: TankLevel
-  well_to_lower_tank_pump_active: bool
-  lower_to_upper_tank_pump_active: bool
+  large_tank_level: TankLevel
+  small_tank_level: TankLevel
+  well_to_large_tank_pump_active: bool
+  lower_to_small_tank_pump_active: bool
   current_state: type[State]
   state_activated_at: datetime
 
@@ -333,10 +333,10 @@ class Measures:
     return Measures(
       time=datetime.now(),
       well_level=0,
-      lower_tank_level=TankLevel.EMPTY,
-      upper_tank_level=TankLevel.EMPTY,
-      well_to_lower_tank_pump_active=False,
-      lower_to_upper_tank_pump_active=False,
+      large_tank_level=TankLevel.EMPTY,
+      small_tank_level=TankLevel.EMPTY,
+      well_to_large_tank_pump_active=False,
+      lower_to_small_tank_pump_active=False,
       current_state=FillWell,
       state_activated_at=datetime.now(),
     )
@@ -346,19 +346,19 @@ class Measures:
     data: dict[str, object] = json.loads(s)  # type: ignore
     assert isinstance(data["time"], str)
     assert isinstance(data["well_level"], int)
-    assert isinstance(data["lower_tank_level"], str)
-    assert isinstance(data["upper_tank_level"], str)
-    assert isinstance(data["well_to_lower_tank_pump_active"], bool)
-    assert isinstance(data["lower_to_upper_tank_pump_active"], bool)
+    assert isinstance(data["large_tank_level"], str)
+    assert isinstance(data["small_tank_level"], str)
+    assert isinstance(data["well_to_large_tank_pump_active"], bool)
+    assert isinstance(data["lower_to_small_tank_pump_active"], bool)
     assert isinstance(data["current_state"], str)
     assert isinstance(data["state_activated_at"], str)
     return Measures(
       time=datetime.fromisoformat(data["time"]),
       well_level=data["well_level"],
-      lower_tank_level=TankLevel(data["lower_tank_level"]),
-      upper_tank_level=TankLevel(data["upper_tank_level"]),
-      well_to_lower_tank_pump_active=bool(data["well_to_lower_tank_pump_active"]),
-      lower_to_upper_tank_pump_active=bool(data["lower_to_upper_tank_pump_active"]),
+      large_tank_level=TankLevel(data["large_tank_level"]),
+      small_tank_level=TankLevel(data["small_tank_level"]),
+      well_to_large_tank_pump_active=bool(data["well_to_large_tank_pump_active"]),
+      lower_to_small_tank_pump_active=bool(data["lower_to_small_tank_pump_active"]),
       current_state=globals()[data["current_state"]],
       state_activated_at=datetime.fromisoformat(data["state_activated_at"]),
     )
@@ -368,10 +368,10 @@ class Measures:
       {
         "time": self.time.isoformat(),
         "well_level": self.well_level,
-        "lower_tank_level": self.lower_tank_level.value,
-        "upper_tank_level": self.upper_tank_level.value,
-        "well_to_lower_tank_pump_active": self.well_to_lower_tank_pump_active,
-        "lower_to_upper_tank_pump_active": self.lower_to_upper_tank_pump_active,
+        "large_tank_level": self.large_tank_level.value,
+        "small_tank_level": self.small_tank_level.value,
+        "well_to_large_tank_pump_active": self.well_to_large_tank_pump_active,
+        "lower_to_small_tank_pump_active": self.lower_to_small_tank_pump_active,
         "current_state": self.current_state.__name__,
         "state_activated_at": self.state_activated_at.isoformat(),
       },
@@ -395,12 +395,12 @@ class Settings:
   fill_period: timedelta
   empty_period: timedelta
   settle_time: timedelta
-  lower_tank_low_floater_pin: PinID
-  lower_tank_high_floater_pin: PinID
-  upper_tank_low_floater_pin: PinID
-  upper_tank_high_floater_pin: PinID
-  well_to_lower_tank_pump_pin: PinID
-  lower_to_upper_tank_pump_pin: PinID
+  large_tank_low_floater_pin: PinID
+  large_tank_high_floater_pin: PinID
+  small_tank_low_floater_pin: PinID
+  small_tank_high_floater_pin: PinID
+  well_to_large_tank_pump_pin: PinID
+  lower_to_small_tank_pump_pin: PinID
 
   @staticmethod
   def deserialize(s: str) -> Settings:
@@ -408,22 +408,22 @@ class Settings:
     assert is_number(data["fill_period"])
     assert is_number(data["empty_period"])
     assert is_number(data["settle_time"])
-    assert is_pin_id(data["lower_tank_low_floater_pin"])
-    assert is_pin_id(data["lower_tank_high_floater_pin"])
-    assert is_pin_id(data["upper_tank_low_floater_pin"])
-    assert is_pin_id(data["upper_tank_high_floater_pin"])
-    assert is_pin_id(data["well_to_lower_tank_pump_pin"])
-    assert is_pin_id(data["lower_to_upper_tank_pump_pin"])
+    assert is_pin_id(data["large_tank_low_floater_pin"])
+    assert is_pin_id(data["large_tank_high_floater_pin"])
+    assert is_pin_id(data["small_tank_low_floater_pin"])
+    assert is_pin_id(data["small_tank_high_floater_pin"])
+    assert is_pin_id(data["well_to_large_tank_pump_pin"])
+    assert is_pin_id(data["lower_to_small_tank_pump_pin"])
     return Settings(
       fill_period=timedelta(seconds=data["fill_period"]),
       empty_period=timedelta(seconds=data["empty_period"]),
       settle_time=timedelta(seconds=data["settle_time"]),
-      lower_tank_low_floater_pin=data["lower_tank_low_floater_pin"],
-      lower_tank_high_floater_pin=data["lower_tank_high_floater_pin"],
-      upper_tank_low_floater_pin=data["upper_tank_low_floater_pin"],
-      upper_tank_high_floater_pin=data["upper_tank_high_floater_pin"],
-      well_to_lower_tank_pump_pin=data["well_to_lower_tank_pump_pin"],
-      lower_to_upper_tank_pump_pin=data["lower_to_upper_tank_pump_pin"],
+      large_tank_low_floater_pin=data["large_tank_low_floater_pin"],
+      large_tank_high_floater_pin=data["large_tank_high_floater_pin"],
+      small_tank_low_floater_pin=data["small_tank_low_floater_pin"],
+      small_tank_high_floater_pin=data["small_tank_high_floater_pin"],
+      well_to_large_tank_pump_pin=data["well_to_large_tank_pump_pin"],
+      lower_to_small_tank_pump_pin=data["lower_to_small_tank_pump_pin"],
     )
 
   def serialize(self) -> str:
@@ -432,12 +432,12 @@ class Settings:
         "fill_period": self.fill_period.total_seconds(),
         "empty_period": self.empty_period.total_seconds(),
         "settle_time": self.settle_time.total_seconds(),
-        "lower_tank_low_floater_pin": self.lower_tank_low_floater_pin,
-        "lower_tank_high_floater_pin": self.lower_tank_high_floater_pin,
-        "upper_tank_low_floater_pin": self.upper_tank_low_floater_pin,
-        "upper_tank_high_floater_pin": self.upper_tank_high_floater_pin,
-        "well_to_lower_tank_pump_pin": self.well_to_lower_tank_pump_pin,
-        "lower_to_upper_tank_pump_pin": self.lower_to_upper_tank_pump_pin,
+        "large_tank_low_floater_pin": self.large_tank_low_floater_pin,
+        "large_tank_high_floater_pin": self.large_tank_high_floater_pin,
+        "small_tank_low_floater_pin": self.small_tank_low_floater_pin,
+        "small_tank_high_floater_pin": self.small_tank_high_floater_pin,
+        "well_to_large_tank_pump_pin": self.well_to_large_tank_pump_pin,
+        "lower_to_small_tank_pump_pin": self.lower_to_small_tank_pump_pin,
       },
       indent=2,
     )
