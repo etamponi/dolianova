@@ -21,6 +21,8 @@ fi
 deactivate
 
 cp dolianova.service /etc/systemd/system/
+cp dolianova-web.service /etc/systemd/system/
 
 systemctl daemon-reload
 systemctl enable dolianova.service
+systemctl enable dolianova-web.service

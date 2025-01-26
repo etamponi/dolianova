@@ -1,0 +1,12 @@
+[Unit]
+Description=Dolianova water pump system web interface
+
+[Service]
+Type=simple
+ExecStart=/opt/dolianova/dolianova-web
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target
