@@ -20,7 +20,6 @@ if [ -f /proc/device-tree/model ]; then
 fi
 deactivate
 
-cp dolianova /usr/local/bin
 cp dolianova.service /etc/systemd/system/
 
 systemctl daemon-reload

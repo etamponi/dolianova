@@ -3,7 +3,7 @@ Description=Dolianova water pump system
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/dolianova
+ExecStart=/opt/dolianova/dolianova
 Restart=on-failure
 RestartSec=10
 Environment=PYTHONUNBUFFERED=1
