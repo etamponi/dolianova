@@ -92,7 +92,7 @@ def translate_level(level: TankLevel) -> str:
     return "MEDIO"
   if level == TankLevel.FULL:
     return "PIENO"
-  return "sconosciuto"
+  return "SCONOSCIUTO"
 
 
 def level_class(level: TankLevel) -> str:
@@ -134,7 +134,7 @@ def get_settle_end_time(measures: Measures) -> datetime | None:
 
 
 def translate_measures(measures: Measures) -> dict[str, object]:
-  no_heartbeat = datetime.now() - measures.time > dolianova.timedelta(minutes=7)
+  no_heartbeat = datetime.now() - measures.time > dolianova.timedelta(minutes=2)
   settle_end_time = get_settle_end_time(measures)
   return {
     "time": translate_time(measures.time),
@@ -192,8 +192,13 @@ def tank_level_to_number(level: TankLevel) -> int:
 
 @app.route("/")
 def index():
-  measures = load_measures()
-  history = load_history()
+  # TODO: do not depend on environment variables here.
+  if os.environ.get("FAKE_DATA"):
+    measures = load_fake_measures()
+    history = load_fake_history()
+  else:
+    measures = load_measures()
+    history = load_history()
   if measures is None or history is None:
     return "Nessun dato disponibile"
   history.add(measures, no_duplicates=False)

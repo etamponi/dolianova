@@ -17,6 +17,7 @@ type PinID = int | str
 
 
 class TankLevel(StrEnum):
+  UNKNOWN = "unknown"
   EMPTY = "empty"
   MEDIUM = "medium"
   FULL = "full"
@@ -333,8 +334,8 @@ class Measures:
     return Measures(
       time=datetime.now(),
       well_level=0,
-      large_tank_level=TankLevel.EMPTY,
-      small_tank_level=TankLevel.EMPTY,
+      large_tank_level=TankLevel.UNKNOWN,
+      small_tank_level=TankLevel.UNKNOWN,
       well_to_large_tank_pump_active=False,
       lower_to_small_tank_pump_active=False,
       current_state=FillWell,
@@ -512,7 +513,7 @@ class Controller:
       return True
     last_modified = datetime.fromtimestamp(os.path.getmtime(self.measures_file))
     current_time = datetime.now()
-    return current_time - last_modified > timedelta(minutes=5)
+    return current_time - last_modified > timedelta(minutes=1)
 
   def run(self) -> Measures | None:
     history_length = len(self.history.measures)
