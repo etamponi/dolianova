@@ -7,13 +7,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import TypeGuard, override
+from typing import TypeGuard
 
 import fire  # type: ignore
 import json5 as json  # type: ignore
 from gpiozero import LED, Button  # type: ignore
 
-type PinID = int | str
+PinID = int | str
 
 
 class TankLevel(StrEnum):
@@ -53,14 +53,12 @@ class Well(PumpListener):
     self.pump_active = False
     self._update_level()
 
-  @override
   def pump_activated(self):
     if self.pump_active:
       return
     self._update_level()
     self.pump_active = True
 
-  @override
   def pump_deactivated(self):
     if not self.pump_active:
       return
@@ -236,14 +234,12 @@ class State(ABC):
 
 
 class FillWell(State):
-  @override
   @staticmethod
   def check(context: Context) -> type[State]:
     if context.well.level == 100:
       return FillLargeTank
     return FillWell
 
-  @override
   @staticmethod
   def action(context: Context) -> None:
     context.well_to_large_tank_pump.deactivate()
@@ -251,7 +247,6 @@ class FillWell(State):
 
 
 class FillLargeTank(State):
-  @override
   @staticmethod
   def check(context: Context) -> type[State]:
     if context.large_tank.level == TankLevel.FULL:
@@ -260,7 +255,6 @@ class FillLargeTank(State):
       return FillWell
     return FillLargeTank
 
-  @override
   @staticmethod
   def action(context: Context) -> None:
     context.well_to_large_tank_pump.activate()
@@ -268,7 +262,6 @@ class FillLargeTank(State):
 
 
 class SettleLargeTank(State):
-  @override
   @staticmethod
   def check(context: Context) -> type[State]:
     if context.large_tank.level != TankLevel.FULL:
@@ -277,7 +270,6 @@ class SettleLargeTank(State):
       return FillSmallTank
     return SettleLargeTank
 
-  @override
   @staticmethod
   def action(context: Context) -> None:
     context.well_to_large_tank_pump.deactivate()
@@ -285,7 +277,6 @@ class SettleLargeTank(State):
 
 
 class FillSmallTank(State):
-  @override
   @staticmethod
   def check(context: Context) -> type[State]:
     if context.large_tank.level == TankLevel.EMPTY:
@@ -294,7 +285,6 @@ class FillSmallTank(State):
       return SmallTankInUse
     return FillSmallTank
 
-  @override
   @staticmethod
   def action(context: Context) -> None:
     context.well_to_large_tank_pump.deactivate()
@@ -302,7 +292,6 @@ class FillSmallTank(State):
 
 
 class SmallTankInUse(State):
-  @override
   @staticmethod
   def check(context: Context) -> type[State]:
     if context.large_tank.level == TankLevel.EMPTY:
@@ -311,7 +300,6 @@ class SmallTankInUse(State):
       return FillSmallTank
     return SmallTankInUse
 
-  @override
   @staticmethod
   def action(context: Context) -> None:
     context.well_to_large_tank_pump.deactivate()
