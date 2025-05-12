@@ -501,8 +501,13 @@ class Controller:
     else:
       measures = Measures.initial()
     if pl.Path(self.history_file).exists():
-      with open(self.history_file) as f:
-        self.history = History.deserialize(f.read())
+      try:
+        with open(self.history_file) as f:
+          self.history = History.deserialize(f.read())
+      except ValueError:
+        # If the history file is corrupted, create a new one.
+        print("History file is corrupted. Creating a new one.")
+        self.history = History()
     else:
       self.history = History()
 

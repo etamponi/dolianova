@@ -31,16 +31,16 @@ def load_measures():
   with open("measures.json") as f:
     data = f.read()
     return Measures.deserialize(data)
-  
+
 
 def load_fake_history(return_none: bool = False) -> History | None:
   if return_none:
     return None
   return History(
-    {
+    measures={
       datetime.now() - timedelta(minutes=60 - 3 * i): Measures(
         time=datetime.now() - timedelta(minutes=60 - 3 * i),
-        well_level=int(100 * (i+1) / 20),
+        well_level=int(100 * (i + 1) / 20),
         large_tank_level=TankLevel.EMPTY if i < 10 else TankLevel.FULL,
         small_tank_level=TankLevel.EMPTY if i > 10 else TankLevel.MEDIUM,
         well_to_large_tank_pump_active=False,
@@ -56,9 +56,13 @@ def load_fake_history(return_none: bool = False) -> History | None:
 def load_history():
   if not os.path.exists("history.json"):
     return None
-  with open("history.json") as f:
-    data = f.read()
-    return History.deserialize(data)
+  try:
+    with open("history.json") as f:
+      data = f.read()
+      return History.deserialize(data)
+  except Exception:
+    print("Error deserializing history")
+    return None
 
 
 def translate_time(time: datetime) -> str:
@@ -127,7 +131,7 @@ def get_settle_end_time(measures: Measures) -> datetime | None:
   with open("settings.json") as f:
     data = f.read()
     settings = Settings.deserialize(data)
-    
+
   if measures.current_state != dolianova.SettleLargeTank:
     return None
   return measures.state_activated_at + settings.settle_time
@@ -152,7 +156,9 @@ def translate_measures(measures: Measures) -> dict[str, object]:
       measures.current_state, measures.state_activated_at
     ).upper(),
     "state_activated_at": translate_time(measures.state_activated_at),
-    "settle_end_time": translate_time(settle_end_time) if settle_end_time is not None else None,
+    "settle_end_time": translate_time(settle_end_time)
+    if settle_end_time is not None
+    else None,
   }
 
 
