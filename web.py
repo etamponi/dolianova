@@ -207,14 +207,23 @@ def index():
     history = load_history()
   if measures is None or history is None:
     return "Nessun dato disponibile"
-  history.add(measures, no_duplicates=False)
+  
+  # Round well level to nearest 10
+  # to avoid too many different values in the chart
+  clean_history = History()
+  for m in history.measures.values():
+    m.well_level = 10 * (m.well_level // 10) # round down to nearest 10
+    clean_history.add(m)
+  # Add the current measure to the history
+  clean_history.add(measures, no_duplicates=False)
+
   translated_measures = translate_measures(measures)
   return render_template(
     "index.html",
     measures=translated_measures,
-    well_level_history=well_level_history(history),
-    large_tank_level_history=tank_level_history(history, "large_tank"),
-    small_tank_level_history=tank_level_history(history, "small_tank"),
+    well_level_history=well_level_history(clean_history),
+    large_tank_level_history=tank_level_history(clean_history, "large_tank"),
+    small_tank_level_history=tank_level_history(clean_history, "small_tank"),
   )
 
 
